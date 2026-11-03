@@ -236,6 +236,7 @@ Every decision in the log. "None" means it has no consequence in the backend's c
 | D63 | Section 11 |
 | D64 | `ErrorCode`, `ApiException`, `ProblemFactory` |
 | D65 | Section 9.10 |
+| D66 | None here: git process and secrets policy |
 
 ---
 

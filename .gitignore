@@ -1,32 +1,55 @@
-# Built things
-_Debug/
-Compiled/
+# Java and build output
+target/
+build/
+out/
+.gradle/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+!gradle/wrapper/gradle-wrapper.jar
+*.hprof
 
-# AudioCache can be rebuilt from sources
-AudioCache/
+# IDE files. Shared VS Code settings may be committed, and must never hold credentials
+.idea/
+*.iml
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
 
-# Lockfile
-_OpenInEditor.lock
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
 
-# User settings
-Game.agf.user
-*.crm.user
+# Logs
+logs/
+*.log
 
-# Backups
-Game.agf.bak
-backup_acsprset.spr
+# Node
+node_modules/
 
-# Memory dumps
-*.dmp
+# Environment and secret files. Only the placeholder .env.example is committed
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+secrets/
+application-local.*
 
-# Temporary files
-# temporarily created during sprite or room background compression
-~aclzw.tmp
-# temporary, main game data, before getting packed into exe
-game28.dta
-# temporary build of the game before being moved to Compiled/ folder
-*.exe
+# Local data directories of containers
+pgdata/
+minio-data/
+.data/
 
-# Log files
-warnings.log
+# Generated verification output
+docs/design/verification/ddl_from_doc.sql
+docs/design/verification/amendments_from_doc.sql
 docs/api/dist/
+
+# Personal Claude Code settings. The shared .claude/settings.json is committed
+.claude/settings.local.json
