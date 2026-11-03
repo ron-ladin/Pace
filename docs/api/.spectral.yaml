@@ -1,0 +1,52 @@
+# Lint rules for docs/api/openapi.yaml. See docs/api/verification/README.md for how to run them.
+extends: [["spectral:oas", "recommended"]]
+
+rules:
+  # Every operation must say which access pattern it serves, so coverage can be checked.
+  pace-access-patterns:
+    description: Every operation must declare x-access-patterns.
+    severity: error
+    given: "$.paths[*][get,put,post,patch,delete]"
+    then:
+      field: x-access-patterns
+      function: truthy
+
+  # Security must be explicit on each operation, so that no endpoint is public by accident.
+  pace-explicit-security:
+    description: Every operation must declare its own security requirement.
+    severity: error
+    given: "$.paths[*][get,put,post,patch,delete]"
+    then:
+      field: security
+      function: truthy
+
+  pace-rate-limit-declared:
+    description: Every operation must declare 429, 500 and 503.
+    severity: error
+    given: "$.paths[*][get,put,post,patch,delete].responses"
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required: ["429", "500", "503"]
+
+  pace-errors-are-problem-details:
+    description: Every 4xx and 5xx response must use application/problem+json.
+    severity: error
+    given: "$.paths[*][get,put,post,patch,delete].responses[?(@property.match(/^[45]/))].content"
+    then:
+      function: schema
+      functionOptions:
+        schema:
+          type: object
+          required: ["application/problem+json"]
+
+  pace-camel-case-properties:
+    description: JSON property names must be camelCase.
+    severity: error
+    given: "$.components.schemas..properties[*]~"
+    then:
+      function: casing
+      functionOptions:
+        type: camel
