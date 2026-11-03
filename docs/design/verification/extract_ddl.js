@@ -3,7 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 const [, , docPath, outPath] = process.argv;
-const doc = fs.readFileSync(docPath, 'utf8').replace(/\r\n/g, '\n');
+const { readSplitDoc } = require('./read_split_doc.cjs');
+const doc = readSplitDoc(docPath);
 
 const start = doc.indexOf('## 3. Schema');
 const end = doc.indexOf('## 4. Indexes');

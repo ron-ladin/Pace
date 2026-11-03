@@ -1,0 +1,55 @@
+# Covers: Responses shared by many operations.
+# Read when: adding a cross-cutting error response.
+# Related: ../openapi.yaml, examples.yaml, headers.yaml
+Unauthenticated:
+  description: Not logged in, or the session expired or was revoked.
+  headers:
+    X-Request-Id:
+      $ref: "./headers.yaml#/XRequestId"
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas.yaml#/Problem"
+      examples:
+        unauthenticated:
+          $ref: "./examples.yaml#/problem_unauthenticated"
+RateLimited:
+  description: Rate limit exceeded.
+  headers:
+    X-Request-Id:
+      $ref: "./headers.yaml#/XRequestId"
+    Retry-After:
+      $ref: "./headers.yaml#/RetryAfter"
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas.yaml#/Problem"
+      examples:
+        rate_limited:
+          $ref: "./examples.yaml#/problem_rate_limited"
+InternalError:
+  description: An unexpected error.
+  headers:
+    X-Request-Id:
+      $ref: "./headers.yaml#/XRequestId"
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas.yaml#/Problem"
+      examples:
+        internal_error:
+          $ref: "./examples.yaml#/problem_internal_error"
+Unavailable:
+  description: Temporarily unavailable. Safe to retry.
+  headers:
+    X-Request-Id:
+      $ref: "./headers.yaml#/XRequestId"
+    Retry-After:
+      $ref: "./headers.yaml#/RetryAfter"
+  content:
+    application/problem+json:
+      schema:
+        $ref: "./schemas.yaml#/Problem"
+      examples:
+        temporarily_unavailable:
+          $ref: "./examples.yaml#/problem_temporarily_unavailable"

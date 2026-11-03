@@ -1,0 +1,613 @@
+# Covers: Group membership, joining and leaving, role changes, kicks and invitations.
+# Read when: working on group membership endpoints.
+# Related: ../openapi.yaml, groups.yaml, invitations.yaml
+/groups/{groupId}/members:
+  get:
+    operationId: listGroupMembers
+    tags:
+      - Groups
+    summary: List group members
+    description: Members only. Ordered by user ID, which the index provides. A non-member of a public group gets 403, and of a private group 404.
+    x-access-patterns:
+      - R7
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: groupId
+        in: path
+        required: true
+        description: A group ID.
+        schema:
+          type: string
+          format: uuid
+      - $ref: "../components/parameters.yaml#/Limit"
+      - $ref: "../components/parameters.yaml#/Cursor"
+    responses:
+      "200":
+        description: Members.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+                - nextCursor
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "../components/schemas.yaml#/Member"
+                nextCursor:
+                  $ref: "../components/schemas.yaml#/NextCursor"
+            example:
+              items:
+                - user:
+                    id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+                    displayName: Dana Levi
+                    photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+                  role: admin
+                  joinedAt: 2026-08-01T09:00:00Z
+              nextCursor: null
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              invalid_cursor:
+                $ref: "../components/examples.yaml#/problem_invalid_cursor"
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              forbidden:
+                $ref: "../components/examples.yaml#/problem_forbidden"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/groups/{groupId}/members/me:
+  put:
+    operationId: joinGroup
+    tags:
+      - Groups
+    summary: Join a group, or accept its invitation
+    description: A public group can be joined by anyone. A private group needs an invitation, which this call consumes, so this is also how an invitation is accepted. Without one, a private group returns 404.
+    x-access-patterns:
+      - W5
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: groupId
+        in: path
+        required: true
+        description: A group ID.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Already a member.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/Member"
+            example:
+              user:
+                id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+                displayName: Dana Levi
+                photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+              role: admin
+              joinedAt: 2026-08-01T09:00:00Z
+      "201":
+        description: Joined.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/Member"
+            example:
+              user:
+                id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+                displayName: Dana Levi
+                photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+              role: member
+              joinedAt: 2026-11-03T10:00:00Z
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+  delete:
+    operationId: leaveGroup
+    tags:
+      - Groups
+    summary: Leave a group
+    description: If the last admin leaves, the longest-standing member is promoted. An empty group is deleted. Succeeds if already not a member.
+    x-access-patterns:
+      - W5
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: groupId
+        in: path
+        required: true
+        description: A group ID.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Not a member any more.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/groups/{groupId}/members/{userId}:
+  patch:
+    operationId: changeMemberRole
+    tags:
+      - Groups
+    summary: Change a member role
+    description: Admin only. The last admin cannot be demoted, and the group row is locked so that two admins cannot demote each other at once.
+    x-access-patterns:
+      - W5
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: groupId
+        in: path
+        required: true
+        description: A group ID.
+        schema:
+          type: string
+          format: uuid
+      - name: userId
+        in: path
+        required: true
+        description: A user ID.
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/merge-patch+json:
+          schema:
+            $ref: "../components/schemas.yaml#/ChangeRoleRequest"
+          example:
+            role: admin
+    responses:
+      "200":
+        description: The updated member.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/Member"
+            example:
+              user:
+                id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+                displayName: Dana Levi
+                photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+              role: admin
+              joinedAt: 2026-08-01T09:00:00Z
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              forbidden:
+                $ref: "../components/examples.yaml#/problem_forbidden"
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "409":
+        description: Conflicts with the current state.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              last_admin:
+                $ref: "../components/examples.yaml#/problem_last_admin"
+      "413":
+        description: Body too large.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              payload_too_large:
+                $ref: "../components/examples.yaml#/problem_payload_too_large"
+      "415":
+        description: Unsupported Content-Type.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              unsupported_media_type:
+                $ref: "../components/examples.yaml#/problem_unsupported_media_type"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+  delete:
+    operationId: removeMember
+    tags:
+      - Groups
+    summary: Remove a member
+    description: Admin only. To leave a group yourself, use `/groups/{groupId}/members/me`.
+    x-access-patterns:
+      - W5
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: groupId
+        in: path
+        required: true
+        description: A group ID.
+        schema:
+          type: string
+          format: uuid
+      - name: userId
+        in: path
+        required: true
+        description: A user ID.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Not a member any more.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              forbidden:
+                $ref: "../components/examples.yaml#/problem_forbidden"
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "409":
+        description: Conflicts with the current state.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              last_admin:
+                $ref: "../components/examples.yaml#/problem_last_admin"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/groups/{groupId}/invitations/{userId}:
+  put:
+    operationId: inviteToGroup
+    tags:
+      - Groups
+    summary: Invite a user to a private group
+    description: Admin only, and private groups only. Already invited or already a member is a harmless 204.
+    x-access-patterns:
+      - W5
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: groupId
+        in: path
+        required: true
+        description: A group ID.
+        schema:
+          type: string
+          format: uuid
+      - name: userId
+        in: path
+        required: true
+        description: A user ID.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: The user is invited, or is already in.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              forbidden:
+                $ref: "../components/examples.yaml#/problem_forbidden"
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "409":
+        description: Conflicts with the current state.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              invitation_not_applicable:
+                $ref: "../components/examples.yaml#/problem_invitation_not_applicable"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"

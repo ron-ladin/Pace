@@ -1,0 +1,919 @@
+# Covers: Every shared request and response schema.
+# Read when: you need a schema. Search for its name rather than reading the whole file.
+# Related: ../openapi.yaml, examples.yaml, ../../design/classes/contract-and-verification.md
+Problem:
+  type: object
+  description: RFC 9457 Problem Details. Clients should switch on `code`, which is stable. `title` and `detail` are for people, and can change.
+  required:
+    - type
+    - title
+    - status
+    - code
+    - requestId
+  properties:
+    type:
+      type: string
+      format: uri
+    title:
+      type: string
+    status:
+      type: integer
+    detail:
+      type: string
+    instance:
+      type: string
+    code:
+      type: string
+      description: The stable machine-readable error code. The catalog is in docs/design/api.md.
+    requestId:
+      type: string
+      description: Quote this when reporting a problem.
+    errors:
+      type: array
+      description: Field-level details, on validation errors.
+      items:
+        type: object
+        required:
+          - field
+          - code
+          - message
+        properties:
+          field:
+            type: string
+          code:
+            type: string
+          message:
+            type: string
+    conflictingRunId:
+      type: string
+      format: uuid
+      description: "On `run_overlap`: the run this one overlaps, which belongs to the caller."
+NextCursor:
+  type:
+    - string
+    - "null"
+  description: "Pass as `cursor` to get the next page. `null` means this is the last page. Opaque: do not parse it."
+CurrentUser:
+  type: object
+  required:
+    - id
+    - email
+    - displayName
+    - birthDate
+    - city
+    - photoUrl
+    - runPrivacy
+    - timeZone
+    - createdAt
+  properties:
+    id:
+      type: string
+      format: uuid
+    email:
+      type: string
+      format: email
+      maxLength: 254
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 50
+    birthDate:
+      type:
+        - string
+        - "null"
+      format: date
+    city:
+      type:
+        - string
+        - "null"
+      maxLength: 100
+    photoUrl:
+      type:
+        - string
+        - "null"
+      description: A same-origin URL, or null if there is no photo.
+    runPrivacy:
+      type: string
+      enum:
+        - private
+        - friends
+        - public
+      description: "`public` means any logged-in user. Does not affect the top N of public competitions the user joined (D16)."
+    timeZone:
+      type: string
+      maxLength: 64
+      description: An IANA time zone name, such as `Asia/Jerusalem`. Used to compute weekly and monthly stats.
+    createdAt:
+      type: string
+      format: date-time
+UserCard:
+  type: object
+  description: What other users may see. Never contains email or birth date.
+  required:
+    - id
+    - displayName
+    - photoUrl
+  properties:
+    id:
+      type: string
+      format: uuid
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 50
+    photoUrl:
+      type:
+        - string
+        - "null"
+      description: A same-origin URL, or null if there is no photo.
+    city:
+      type:
+        - string
+        - "null"
+      description: Present only on `GET /users/{userId}`, for friends and the user themselves.
+RegisterRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - email
+    - password
+    - displayName
+  properties:
+    email:
+      type: string
+      format: email
+      maxLength: 254
+    password:
+      type: string
+      minLength: 10
+      maxLength: 128
+      format: password
+      description: No composition rules. Common passwords are rejected with `weak_password`.
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 50
+    timeZone:
+      type: string
+      maxLength: 64
+      description: An IANA time zone name, such as `Asia/Jerusalem`. Used to compute weekly and monthly stats.
+      default: UTC
+LoginRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - email
+    - password
+  properties:
+    email:
+      type: string
+      format: email
+      maxLength: 254
+    password:
+      type: string
+      maxLength: 128
+      format: password
+UpdateMeRequest:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    displayName:
+      type: string
+      minLength: 1
+      maxLength: 50
+    birthDate:
+      type:
+        - string
+        - "null"
+      format: date
+    city:
+      type:
+        - string
+        - "null"
+      minLength: 1
+      maxLength: 100
+    timeZone:
+      type: string
+      maxLength: 64
+      description: An IANA time zone name, such as `Asia/Jerusalem`. Used to compute weekly and monthly stats.
+    runPrivacy:
+      type: string
+      enum:
+        - private
+        - friends
+        - public
+      description: "`public` means any logged-in user. Does not affect the top N of public competitions the user joined (D16)."
+ChangePasswordRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - currentPassword
+    - newPassword
+  properties:
+    currentPassword:
+      type: string
+      maxLength: 128
+      format: password
+    newPassword:
+      type: string
+      minLength: 10
+      maxLength: 128
+      format: password
+      description: No composition rules. Common passwords are rejected with `weak_password`.
+DeleteAccountRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - password
+  properties:
+    password:
+      type: string
+      maxLength: 128
+      format: password
+PhotoResponse:
+  type: object
+  required:
+    - photoUrl
+  properties:
+    photoUrl:
+      type: string
+Run:
+  type: object
+  description: A run. `status`, `invalidReason` and `receivedAt` are present for the owner only.
+  required:
+    - id
+    - source
+    - startedAt
+    - endedAt
+    - distanceMeters
+    - durationSeconds
+    - paceSecondsPerKm
+  properties:
+    id:
+      type: string
+      format: uuid
+    source:
+      type: string
+      description: "How the run arrived. Open enum: clients must handle values not listed here."
+      x-extensible-enum:
+        - gpx_upload
+    startedAt:
+      type: string
+      format: date-time
+    endedAt:
+      type: string
+      format: date-time
+    distanceMeters:
+      type: integer
+      minimum: 1
+    durationSeconds:
+      type: integer
+      minimum: 1
+      description: Elapsed time.
+    paceSecondsPerKm:
+      type: integer
+      minimum: 0
+    status:
+      type: string
+      enum:
+        - valid
+        - invalid
+      description: Invalid runs are stored but never scored.
+    invalidReason:
+      type:
+        - string
+        - "null"
+      description: "Null when valid. Open enum: clients must handle values not listed here."
+      x-extensible-enum:
+        - pace_too_fast
+        - pace_too_slow
+        - gps_speed_jump
+        - duration_too_long
+    receivedAt:
+      type: string
+      format: date-time
+      description: When the server received the run. Used for competition eligibility (D13).
+OwnRun:
+  allOf:
+    - $ref: "#/Run"
+    - type: object
+      required:
+        - status
+        - invalidReason
+        - receivedAt
+Stats:
+  type: object
+  required:
+    - timeZone
+    - weekStart
+    - weeks
+    - months
+    - totals
+    - personalBests
+  properties:
+    timeZone:
+      type: string
+      maxLength: 64
+      description: An IANA time zone name, such as `Asia/Jerusalem`. Used to compute weekly and monthly stats.
+    weekStart:
+      type: string
+      enum:
+        - monday
+        - sunday
+    weeks:
+      type: array
+      items:
+        $ref: "#/StatsPeriod"
+    months:
+      type: array
+      items:
+        $ref: "#/StatsPeriod"
+    totals:
+      type: object
+      required:
+        - runCount
+        - distanceMeters
+        - durationSeconds
+      properties:
+        runCount:
+          type: integer
+        distanceMeters:
+          type: integer
+        durationSeconds:
+          type: integer
+    personalBests:
+      type: object
+      required:
+        - longestRun
+        - fastestPace
+      properties:
+        longestRun:
+          type:
+            - object
+            - "null"
+          required:
+            - runId
+            - distanceMeters
+            - startedAt
+          properties:
+            runId:
+              type: string
+              format: uuid
+            distanceMeters:
+              type: integer
+            startedAt:
+              type: string
+              format: date-time
+        fastestPace:
+          type: array
+          description: Best whole-run pace among runs of at least each standard distance (1K, 5K, 10K, half, marathon). Distances with no qualifying run are omitted.
+          items:
+            type: object
+            required:
+              - minDistanceMeters
+              - paceSecondsPerKm
+              - runId
+              - startedAt
+            properties:
+              minDistanceMeters:
+                type: integer
+              paceSecondsPerKm:
+                type: integer
+              runId:
+                type: string
+                format: uuid
+              startedAt:
+                type: string
+                format: date-time
+StatsPeriod:
+  type: object
+  required:
+    - startDate
+    - runCount
+    - distanceMeters
+    - durationSeconds
+  properties:
+    startDate:
+      type: string
+      format: date
+    runCount:
+      type: integer
+    distanceMeters:
+      type: integer
+    durationSeconds:
+      type: integer
+Friendship:
+  type: object
+  required:
+    - user
+    - status
+    - createdAt
+    - acceptedAt
+  properties:
+    user:
+      $ref: "#/UserCard"
+    status:
+      type: string
+      enum:
+        - accepted
+        - incoming
+        - outgoing
+      description: Direction is from the viewer's point of view.
+    createdAt:
+      type: string
+      format: date-time
+    acceptedAt:
+      type:
+        - string
+        - "null"
+      format: date-time
+CreateGroupRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - name
+    - visibility
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100
+    visibility:
+      type: string
+      enum:
+        - public
+        - private
+    city:
+      type: string
+      minLength: 1
+      maxLength: 100
+GroupSummary:
+  type: object
+  required:
+    - id
+    - name
+    - visibility
+    - city
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    visibility:
+      type: string
+      enum:
+        - public
+        - private
+    city:
+      type:
+        - string
+        - "null"
+MyGroup:
+  allOf:
+    - $ref: "#/GroupSummary"
+    - type: object
+      required:
+        - role
+        - joinedAt
+      properties:
+        role:
+          $ref: "#/GroupRole"
+        joinedAt:
+          type: string
+          format: date-time
+GroupRole:
+  type: string
+  enum:
+    - admin
+    - member
+Group:
+  allOf:
+    - $ref: "#/GroupSummary"
+    - type: object
+      required:
+        - createdAt
+        - memberCount
+        - viewer
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        memberCount:
+          type: integer
+          minimum: 0
+        viewer:
+          type: object
+          description: What the viewer can do, so that clients do not re-implement these rules.
+          required:
+            - isMember
+            - role
+            - invited
+            - canJoin
+            - canInvite
+            - canManage
+          properties:
+            isMember:
+              type: boolean
+            role:
+              oneOf:
+                - $ref: "#/GroupRole"
+                - type: "null"
+            invited:
+              type: boolean
+            canJoin:
+              type: boolean
+            canInvite:
+              type: boolean
+            canManage:
+              type: boolean
+Member:
+  type: object
+  required:
+    - user
+    - role
+    - joinedAt
+  properties:
+    user:
+      $ref: "#/UserCard"
+    role:
+      $ref: "#/GroupRole"
+    joinedAt:
+      type: string
+      format: date-time
+ChangeRoleRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - role
+  properties:
+    role:
+      $ref: "#/GroupRole"
+CompetitionState:
+  type: string
+  enum:
+    - upcoming
+    - running
+    - finalizing
+    - closed
+  description: "`finalizing`: the window has ended, late uploads can still count, and nobody can join or leave. Show this state, because results can still change. `closed`: the result is final."
+Rule:
+  type: object
+  required:
+    - type
+  properties:
+    type:
+      type: string
+      description: "The scoring rule. Open enum: clients must handle values not listed here."
+      x-extensible-enum:
+        - total_distance
+        - longest_run
+        - fastest_pace
+    minDistanceMeters:
+      type: integer
+      minimum: 1
+      description: Present for `fastest_pace` only.
+RuleRequest:
+  description: "`minDistanceMeters` is required for `fastest_pace`, and not allowed for the other rules."
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum:
+            - total_distance
+            - longest_run
+    - type: object
+      additionalProperties: false
+      required:
+        - type
+        - minDistanceMeters
+      properties:
+        type:
+          type: string
+          const: fastest_pace
+        minDistanceMeters:
+          type: integer
+          minimum: 1
+CreateCompetitionRequest:
+  type: object
+  additionalProperties: false
+  required:
+    - name
+    - rule
+    - visibility
+    - startsAt
+    - endsAt
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 100
+    city:
+      type: string
+      minLength: 1
+      maxLength: 100
+    rule:
+      $ref: "#/RuleRequest"
+    visibility:
+      type: string
+      enum:
+        - private
+        - public
+    startsAt:
+      type: string
+      format: date-time
+      description: At most 30 days in the past.
+    endsAt:
+      type: string
+      format: date-time
+      description: After `startsAt`, in the future, and at most 366 days after `startsAt`.
+    gracePeriodSeconds:
+      type: integer
+      minimum: 0
+      maximum: 259200
+      default: 21600
+      description: Time after `endsAt` during which uploads can still count (D28). `closesAt` is calculated from this.
+    groupId:
+      type: string
+      format: uuid
+      description: Ties the competition to a group. Requires being an admin of that group.
+    consentToPublicLeaderboard:
+      type: boolean
+      description: Must be `true` for a public competition, because the creator joins automatically.
+CompetitionSummary:
+  type: object
+  required:
+    - id
+    - name
+    - city
+    - rule
+    - visibility
+    - startsAt
+    - endsAt
+    - closesAt
+    - state
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    city:
+      type:
+        - string
+        - "null"
+    rule:
+      $ref: "#/Rule"
+    visibility:
+      type: string
+      enum:
+        - private
+        - public
+    startsAt:
+      type: string
+      format: date-time
+    endsAt:
+      type: string
+      format: date-time
+    closesAt:
+      type: string
+      format: date-time
+    state:
+      $ref: "#/CompetitionState"
+MyCompetition:
+  allOf:
+    - $ref: "#/CompetitionSummary"
+    - type: object
+      required:
+        - myScore
+        - joinedAt
+      properties:
+        myScore:
+          type:
+            - integer
+            - "null"
+          description: Null until a run is eligible. Meters, or seconds per km for `fastest_pace`.
+        joinedAt:
+          type: string
+          format: date-time
+Competition:
+  allOf:
+    - $ref: "#/CompetitionSummary"
+    - type: object
+      required:
+        - closedAt
+        - createdAt
+        - group
+        - participantCount
+      properties:
+        closedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          oneOf:
+            - $ref: "#/UserCard"
+            - type: "null"
+          description: Absent for logged-out visitors. Null if the creator deleted their account.
+        group:
+          type:
+            - object
+            - "null"
+          description: Null when there is no group, and also when the viewer cannot see it, so that a private group is never revealed.
+          required:
+            - id
+            - name
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        participantCount:
+          type: integer
+          minimum: 0
+        viewer:
+          type: object
+          description: What the viewer can do, so that clients do not re-implement these rules. Absent for logged-out visitors.
+          required:
+            - isParticipant
+            - invited
+            - canJoin
+            - canLeave
+            - canInvite
+            - canDelete
+          properties:
+            isParticipant:
+              type: boolean
+            invited:
+              type: boolean
+            canJoin:
+              type: boolean
+            canLeave:
+              type: boolean
+            canInvite:
+              type: boolean
+            canDelete:
+              type: boolean
+JoinCompetitionRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    consentToPublicLeaderboard:
+      type: boolean
+Participation:
+  type: object
+  required:
+    - competitionId
+    - joinedAt
+    - score
+  properties:
+    competitionId:
+      type: string
+      format: uuid
+    joinedAt:
+      type: string
+      format: date-time
+    score:
+      type:
+        - integer
+        - "null"
+Participant:
+  type: object
+  required:
+    - user
+    - score
+    - joinedAt
+  properties:
+    user:
+      $ref: "#/UserCard"
+    score:
+      type:
+        - integer
+        - "null"
+      description: Null until a run is eligible.
+    joinedAt:
+      type: string
+      format: date-time
+LeaderboardEntry:
+  type: object
+  required:
+    - rank
+    - displayName
+    - score
+  properties:
+    rank:
+      type: integer
+      minimum: 1
+      description: "Ties share a rank: 1, 1, 3."
+    displayName:
+      type: string
+    score:
+      type: integer
+    userId:
+      type: string
+      format: uuid
+      description: Present for `full` viewers only.
+    photoUrl:
+      type:
+        - string
+        - "null"
+      description: Present for `full` viewers only.
+    isMe:
+      type: boolean
+      description: Present for `full` viewers only.
+Leaderboard:
+  type: object
+  required:
+    - state
+    - scoreUnit
+    - viewerAccess
+    - asOf
+    - pollIntervalSeconds
+    - entries
+    - nextCursor
+  properties:
+    state:
+      $ref: "#/CompetitionState"
+    scoreUnit:
+      type: string
+      description: "The unit of `score`. Open enum: clients must handle values not listed here."
+      x-extensible-enum:
+        - meters
+        - seconds_per_km
+    viewerAccess:
+      type: string
+      enum:
+        - full
+        - top_n
+    asOf:
+      type: string
+      format: date-time
+      description: When this data was read. Not the time of the last score change.
+    pollIntervalSeconds:
+      type:
+        - integer
+        - "null"
+      description: "How long to wait before polling again. Null: stop polling, because the competition is closed."
+    entries:
+      type: array
+      items:
+        $ref: "#/LeaderboardEntry"
+    me:
+      type:
+        - object
+        - "null"
+      description: "Null: the viewer is not participating. Absent on pages after the first."
+      required:
+        - rank
+        - score
+      properties:
+        rank:
+          type:
+            - integer
+            - "null"
+          description: "Null: participating, with no eligible run yet."
+        score:
+          type:
+            - integer
+            - "null"
+    nextCursor:
+      $ref: "#/NextCursor"
+Invitation:
+  type: object
+  required:
+    - type
+    - target
+    - invitedBy
+    - createdAt
+  properties:
+    type:
+      type: string
+      enum:
+        - group
+        - competition
+    target:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    invitedBy:
+      $ref: "#/UserCard"
+    createdAt:
+      type: string
+      format: date-time

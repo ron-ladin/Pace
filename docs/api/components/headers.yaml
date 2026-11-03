@@ -1,0 +1,48 @@
+# Covers: Response headers shared by many operations.
+# Read when: working on rate-limit, caching or other response headers.
+# Related: ../openapi.yaml, responses.yaml, ../../design/api/limits-security-observability.md
+XRequestId:
+  description: The request ID, also in logs and error bodies.
+  schema:
+    type: string
+RetryAfter:
+  description: Seconds to wait before retrying.
+  schema:
+    type: integer
+    minimum: 0
+Location:
+  description: The URL of the new resource.
+  schema:
+    type: string
+ETag:
+  description: Identifies this content. Excludes `asOf`.
+  schema:
+    type: string
+VaryCookie:
+  description: The content depends on the viewer.
+  schema:
+    type: string
+    const: Cookie
+CacheControlNoStore:
+  description: Must not be stored.
+  schema:
+    type: string
+    const: no-store
+CacheControlRevalidate:
+  description: May be stored, but must be revalidated before use.
+  schema:
+    type: string
+    const: private, no-cache
+CacheControlImmutable:
+  description: This URL never changes content.
+  schema:
+    type: string
+    const: private, max-age=31536000, immutable
+SetSessionCookie:
+  description: "Sets the session cookie: `__Host-pace_session=<token>; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=<seconds>`."
+  schema:
+    type: string
+ClearSessionCookie:
+  description: Clears the session cookie.
+  schema:
+    type: string

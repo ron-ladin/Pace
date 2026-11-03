@@ -1,0 +1,21 @@
+# Covers: Query parameters shared by many operations.
+# Read when: working on list endpoints or pagination.
+# Related: ../openapi.yaml, ../../design/api/conventions.md
+Limit:
+  name: limit
+  in: query
+  required: false
+  description: Page size.
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 100
+    default: 20
+Cursor:
+  name: cursor
+  in: query
+  required: false
+  description: The `nextCursor` from the previous page. Keep the other query parameters unchanged.
+  schema:
+    type: string
+    maxLength: 512

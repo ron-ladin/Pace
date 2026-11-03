@@ -1,0 +1,558 @@
+# Covers: Creating, listing, searching, viewing and deleting competitions.
+# Read when: working on competition endpoints.
+# Related: ../openapi.yaml, competition-participants.yaml, ../../design/api/competition-semantics.md
+/competitions:
+  post:
+    operationId: createCompetition
+    tags:
+      - Competitions
+    summary: Create a competition
+    description: |-
+      The creator joins automatically, in the same transaction, so this counts toward the limit of 10 open competitions and backfills their score. A public competition requires `consentToPublicLeaderboard: true`.
+
+      With `groupId`, only an admin of that group may create it. Competitions cannot be edited after creation.
+
+      Not idempotent: the client must disable the button while the request is in flight. See `DELETE /competitions/{competitionId}` for recovering from a mistake.
+    x-access-patterns:
+      - W3
+      - W2
+    security:
+      - sessionCookie: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas.yaml#/CreateCompetitionRequest"
+          example:
+            name: Fastest 5K in November
+            city: Haifa
+            rule:
+              type: fastest_pace
+              minDistanceMeters: 5000
+            visibility: public
+            startsAt: 2026-11-01T00:00:00Z
+            endsAt: 2026-12-01T00:00:00Z
+            gracePeriodSeconds: 21600
+            consentToPublicLeaderboard: true
+    responses:
+      "201":
+        description: Competition created, and the creator joined.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+          Location:
+            $ref: "../components/headers.yaml#/Location"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/Competition"
+            example:
+              id: 019a2e65-1f30-7a88-b7d0-c42e91f7ab07
+              name: November Distance Challenge
+              city: Haifa
+              rule:
+                type: total_distance
+              visibility: public
+              startsAt: 2026-11-01T00:00:00Z
+              endsAt: 2026-12-01T00:00:00Z
+              closesAt: 2026-12-01T06:00:00Z
+              state: running
+              closedAt: null
+              createdAt: 2026-10-25T12:00:00Z
+              createdBy:
+                id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+                displayName: Dana Levi
+                photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+              group:
+                id: 0199b2d4-5510-7b6e-94c2-6e1f0a8d3c06
+                name: Haifa Morning Runners
+              participantCount: 1
+              viewer:
+                isParticipant: true
+                invited: false
+                canJoin: false
+                canLeave: true
+                canInvite: false
+                canDelete: false
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              forbidden:
+                $ref: "../components/examples.yaml#/problem_forbidden"
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "409":
+        description: Conflicts with the current state.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              competition_limit_reached:
+                $ref: "../components/examples.yaml#/problem_competition_limit_reached"
+      "413":
+        description: Body too large.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              payload_too_large:
+                $ref: "../components/examples.yaml#/problem_payload_too_large"
+      "415":
+        description: Unsupported Content-Type.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              unsupported_media_type:
+                $ref: "../components/examples.yaml#/problem_unsupported_media_type"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              consent_required:
+                $ref: "../components/examples.yaml#/problem_consent_required"
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+  get:
+    operationId: searchCompetitions
+    tags:
+      - Competitions
+    summary: Search public competitions
+    description: Public competitions only, newest first. Excludes `closed` unless `state` asks for it.
+    x-access-patterns:
+      - R8
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: q
+        in: query
+        required: false
+        description: Text to find in the name.
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 100
+      - name: city
+        in: query
+        required: false
+        description: Text to find in the city.
+        schema:
+          type: string
+          minLength: 2
+          maxLength: 100
+      - name: state
+        in: query
+        required: false
+        description: "States to include. Repeat the parameter for several. Default: all except `closed`."
+        schema:
+          type: array
+          items:
+            $ref: "../components/schemas.yaml#/CompetitionState"
+        style: form
+        explode: true
+      - $ref: "../components/parameters.yaml#/Limit"
+      - $ref: "../components/parameters.yaml#/Cursor"
+    responses:
+      "200":
+        description: Matching competitions.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+                - nextCursor
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "../components/schemas.yaml#/CompetitionSummary"
+                nextCursor:
+                  $ref: "../components/schemas.yaml#/NextCursor"
+            example:
+              items:
+                - id: 019a2e65-1f30-7a88-b7d0-c42e91f7ab07
+                  name: November Distance Challenge
+                  city: Haifa
+                  rule:
+                    type: total_distance
+                  visibility: public
+                  startsAt: 2026-11-01T00:00:00Z
+                  endsAt: 2026-12-01T00:00:00Z
+                  closesAt: 2026-12-01T06:00:00Z
+                  state: running
+              nextCursor: null
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              invalid_cursor:
+                $ref: "../components/examples.yaml#/problem_invalid_cursor"
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/me/competitions:
+  get:
+    operationId: listMyCompetitions
+    tags:
+      - Competitions
+    summary: List my competitions
+    description: "`active` means not closed yet, and includes `finalizing`. Newest first. Ranks are not included, because that would be one rank query per row."
+    x-access-patterns:
+      - R6
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: status
+        in: query
+        required: false
+        description: Which competitions to list.
+        schema:
+          type: string
+          enum:
+            - active
+            - finished
+          default: active
+      - $ref: "../components/parameters.yaml#/Limit"
+      - $ref: "../components/parameters.yaml#/Cursor"
+    responses:
+      "200":
+        description: My competitions.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+                - nextCursor
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "../components/schemas.yaml#/MyCompetition"
+                nextCursor:
+                  $ref: "../components/schemas.yaml#/NextCursor"
+            example:
+              items:
+                - id: 019a2e65-1f30-7a88-b7d0-c42e91f7ab07
+                  name: November Distance Challenge
+                  city: Haifa
+                  rule:
+                    type: total_distance
+                  visibility: public
+                  startsAt: 2026-11-01T00:00:00Z
+                  endsAt: 2026-12-01T00:00:00Z
+                  closesAt: 2026-12-01T06:00:00Z
+                  state: running
+                  myScore: 31000
+                  joinedAt: 2026-11-01T07:00:00Z
+              nextCursor: null
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              invalid_cursor:
+                $ref: "../components/examples.yaml#/problem_invalid_cursor"
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/competitions/{competitionId}:
+  get:
+    operationId: getCompetition
+    tags:
+      - Competitions
+    summary: Get a competition
+    description: |-
+      Public competitions are visible to anyone, including logged-out visitors. Private ones return 404 unless the viewer is a participant, the creator, an invitee or a member of the owning group.
+
+      `state` is derived from the timestamps on every read. `closed` means the result is final, apart from rank shifts when an account is deleted (D17).
+
+      `group` is `null` when there is no group and also when the viewer cannot see it, so the response never reveals a private group. `viewer` is absent for logged-out visitors.
+    x-access-patterns:
+      - R5
+      - W4
+    security:
+      - {}
+      - sessionCookie: []
+    parameters:
+      - name: competitionId
+        in: path
+        required: true
+        description: A competition ID.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The competition.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/Competition"
+            example:
+              id: 019a2e65-1f30-7a88-b7d0-c42e91f7ab07
+              name: November Distance Challenge
+              city: Haifa
+              rule:
+                type: total_distance
+              visibility: public
+              startsAt: 2026-11-01T00:00:00Z
+              endsAt: 2026-12-01T00:00:00Z
+              closesAt: 2026-12-01T06:00:00Z
+              state: running
+              closedAt: null
+              createdAt: 2026-10-25T12:00:00Z
+              createdBy:
+                id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+                displayName: Dana Levi
+                photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+              group:
+                id: 0199b2d4-5510-7b6e-94c2-6e1f0a8d3c06
+                name: Haifa Morning Runners
+              participantCount: 128
+              viewer:
+                isParticipant: true
+                invited: false
+                canJoin: false
+                canLeave: true
+                canInvite: false
+                canDelete: false
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+  delete:
+    operationId: deleteCompetition
+    tags:
+      - Competitions
+    summary: Delete a competition
+    description: Creator only, before it starts, and only while they are the only participant. Exists so that mistakes can be fixed, since competitions cannot be edited.
+    x-access-patterns:
+      - W3
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: competitionId
+        in: path
+        required: true
+        description: A competition ID.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Competition deleted.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              forbidden:
+                $ref: "../components/examples.yaml#/problem_forbidden"
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "409":
+        description: Conflicts with the current state.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              competition_not_deletable:
+                $ref: "../components/examples.yaml#/problem_competition_not_deletable"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"

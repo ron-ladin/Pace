@@ -1,0 +1,266 @@
+# Covers: Friend lists, requests and removal.
+# Read when: working on friendship endpoints.
+# Related: ../openapi.yaml, ../../design/api/errors-and-concurrency.md
+/me/friends:
+  get:
+    operationId: listFriends
+    tags:
+      - Friends
+    summary: List friends and friend requests
+    description: List friends and friend requests
+    x-access-patterns:
+      - R7
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: status
+        in: query
+        required: false
+        description: Accepted friends, or pending requests by direction.
+        schema:
+          type: string
+          enum:
+            - accepted
+            - incoming
+            - outgoing
+          default: accepted
+      - $ref: "../components/parameters.yaml#/Limit"
+      - $ref: "../components/parameters.yaml#/Cursor"
+    responses:
+      "200":
+        description: Friendships.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+                - nextCursor
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "../components/schemas.yaml#/Friendship"
+                nextCursor:
+                  $ref: "../components/schemas.yaml#/NextCursor"
+            example:
+              items:
+                - user:
+                    id: 0193f2a0-9e42-7a1b-8c33-1f6d2b7c9e02
+                    displayName: Noa Peretz
+                    photoUrl: null
+                  status: accepted
+                  createdAt: 2026-09-01T10:00:00Z
+                  acceptedAt: 2026-09-02T08:00:00Z
+              nextCursor: null
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              invalid_cursor:
+                $ref: "../components/examples.yaml#/problem_invalid_cursor"
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/me/friends/{userId}:
+  put:
+    operationId: putFriend
+    tags:
+      - Friends
+    summary: Send or accept a friend request
+    description: 'Means "I want this friendship". No relationship yet: creates a pending request (201). Their pending request: accepts it (200). Mine pending, or already friends: no change (200). Read `status` in the body for the result.'
+    x-access-patterns:
+      - W5
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        description: A user ID.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Accepted, or no change.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/Friendship"
+            example:
+              user:
+                id: 0193f2a0-9e42-7a1b-8c33-1f6d2b7c9e02
+                displayName: Noa Peretz
+                photoUrl: null
+              status: accepted
+              createdAt: 2026-09-01T10:00:00Z
+              acceptedAt: 2026-09-02T08:00:00Z
+      "201":
+        description: Request sent.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/Friendship"
+            example:
+              user:
+                id: 0193f2a0-9e42-7a1b-8c33-1f6d2b7c9e02
+                displayName: Noa Peretz
+                photoUrl: null
+              status: outgoing
+              createdAt: 2026-11-03T10:00:00Z
+              acceptedAt: null
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              friend_self:
+                $ref: "../components/examples.yaml#/problem_friend_self"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+  delete:
+    operationId: deleteFriend
+    tags:
+      - Friends
+    summary: Decline, cancel or remove a friend
+    description: All three delete the same row. Succeeds even if there is no relationship.
+    x-access-patterns:
+      - W5
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        description: A user ID.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: No relationship remains.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"

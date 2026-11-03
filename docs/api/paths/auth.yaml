@@ -1,0 +1,292 @@
+# Covers: Registration, login and logout.
+# Read when: working on authentication endpoints.
+# Related: ../openapi.yaml, ../../design/api/auth.md
+/auth/register:
+  post:
+    operationId: register
+    tags:
+      - Auth
+    summary: Register and log in
+    description: Creates an account and a session. Reveals that an email is registered (409 `email_taken`), because this cannot be avoided without email verification. Strict per-IP rate limits apply.
+    x-access-patterns:
+      - W6
+    security:
+      - {}
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas.yaml#/RegisterRequest"
+          example:
+            email: dana@example.com
+            password: correct horse battery
+            displayName: Dana Levi
+            timeZone: Asia/Jerusalem
+    responses:
+      "201":
+        description: Account created, and logged in.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+          Set-Cookie:
+            $ref: "../components/headers.yaml#/SetSessionCookie"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/CurrentUser"
+            example:
+              id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+              email: dana@example.com
+              displayName: Dana Levi
+              birthDate: null
+              city: null
+              photoUrl: null
+              runPrivacy: private
+              timeZone: Asia/Jerusalem
+              createdAt: 2026-01-15T18:20:00Z
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "409":
+        description: Conflicts with the current state.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              email_taken:
+                $ref: "../components/examples.yaml#/problem_email_taken"
+      "413":
+        description: Body too large.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              payload_too_large:
+                $ref: "../components/examples.yaml#/problem_payload_too_large"
+      "415":
+        description: Unsupported Content-Type.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              unsupported_media_type:
+                $ref: "../components/examples.yaml#/problem_unsupported_media_type"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              weak_password:
+                $ref: "../components/examples.yaml#/problem_weak_password"
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/auth/login:
+  post:
+    operationId: login
+    tags:
+      - Auth
+    summary: Log in
+    description: Creates a session. An unknown email and a wrong password are indistinguishable, in both the response and its timing.
+    x-access-patterns:
+      - R1
+    security:
+      - {}
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas.yaml#/LoginRequest"
+          example:
+            email: dana@example.com
+            password: correct horse battery
+    responses:
+      "200":
+        description: Logged in.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+          Set-Cookie:
+            $ref: "../components/headers.yaml#/SetSessionCookie"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/CurrentUser"
+            example:
+              id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+              email: dana@example.com
+              displayName: Dana Levi
+              birthDate: 1998-04-12
+              city: Haifa
+              photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+              runPrivacy: friends
+              timeZone: Asia/Jerusalem
+              createdAt: 2026-01-15T18:20:00Z
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        description: Wrong email or password.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              invalid_credentials:
+                $ref: "../components/examples.yaml#/problem_invalid_credentials"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "413":
+        description: Body too large.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              payload_too_large:
+                $ref: "../components/examples.yaml#/problem_payload_too_large"
+      "415":
+        description: Unsupported Content-Type.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              unsupported_media_type:
+                $ref: "../components/examples.yaml#/problem_unsupported_media_type"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/auth/logout:
+  post:
+    operationId: logout
+    tags:
+      - Auth
+    summary: Log out
+    description: Deletes the current session immediately and clears the cookie.
+    x-access-patterns:
+      - R1
+    security:
+      - sessionCookie: []
+    responses:
+      "204":
+        description: Logged out.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+          Set-Cookie:
+            $ref: "../components/headers.yaml#/ClearSessionCookie"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"

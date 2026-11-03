@@ -3,7 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 const [, , docPath, outPath] = process.argv;
-const doc = fs.readFileSync(docPath, 'utf8').replace(/\r\n/g, '\n');
+const { readSplitDoc } = require('./read_split_doc.cjs');
+const doc = readSplitDoc(docPath);
 
 const section = doc.slice(doc.indexOf('## 14. Amendments'));
 const blocks = [...section.matchAll(/```sql\n(-- V\d{4}__[\s\S]*?)```/g)].map(m => m[1]);

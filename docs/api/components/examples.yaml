@@ -1,0 +1,342 @@
+# Covers: Every Problem Details example, one per error code.
+# Read when: adding or checking an error response.
+# Related: ../openapi.yaml, responses.yaml, ../../design/api/errors-and-concurrency.md
+problem_malformed_request:
+  summary: Malformed request
+  value:
+    type: urn:pace:problem:malformed_request
+    title: Malformed request
+    status: 400
+    detail: The request body or a parameter could not be understood, or it contains an unknown field.
+    instance: /api/v1/example
+    code: malformed_request
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_invalid_cursor:
+  summary: Invalid cursor
+  value:
+    type: urn:pace:problem:invalid_cursor
+    title: Invalid cursor
+    status: 400
+    detail: The cursor is not valid for this list. Restart from the first page.
+    instance: /api/v1/example
+    code: invalid_cursor
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_invalid_credentials:
+  summary: Invalid credentials
+  value:
+    type: urn:pace:problem:invalid_credentials
+    title: Invalid credentials
+    status: 401
+    detail: The email or password is incorrect.
+    instance: /api/v1/example
+    code: invalid_credentials
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_unauthenticated:
+  summary: Authentication required
+  value:
+    type: urn:pace:problem:unauthenticated
+    title: Authentication required
+    status: 401
+    detail: Log in to use this endpoint.
+    instance: /api/v1/example
+    code: unauthenticated
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_password_incorrect:
+  summary: Password incorrect
+  value:
+    type: urn:pace:problem:password_incorrect
+    title: Password incorrect
+    status: 403
+    detail: The password you entered is incorrect. You are still logged in.
+    instance: /api/v1/example
+    code: password_incorrect
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_forbidden:
+  summary: Forbidden
+  value:
+    type: urn:pace:problem:forbidden
+    title: Forbidden
+    status: 403
+    detail: You can see this resource, but you may not perform this action.
+    instance: /api/v1/example
+    code: forbidden
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_csrf_rejected:
+  summary: Cross-site request rejected
+  value:
+    type: urn:pace:problem:csrf_rejected
+    title: Cross-site request rejected
+    status: 403
+    detail: This request did not come from the application origin.
+    instance: /api/v1/example
+    code: csrf_rejected
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_runs_not_visible:
+  summary: Runs are not visible
+  value:
+    type: urn:pace:problem:runs_not_visible
+    title: Runs are not visible
+    status: 403
+    detail: This user's run privacy setting does not allow you to see their runs.
+    instance: /api/v1/example
+    code: runs_not_visible
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_full_leaderboard_forbidden:
+  summary: Full leaderboard requires participation
+  value:
+    type: urn:pace:problem:full_leaderboard_forbidden
+    title: Full leaderboard requires participation
+    status: 403
+    detail: Only participants can page through the full leaderboard.
+    instance: /api/v1/example
+    code: full_leaderboard_forbidden
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_not_found:
+  summary: Not found
+  value:
+    type: urn:pace:problem:not_found
+    title: Not found
+    status: 404
+    detail: The resource does not exist, or you do not have access to it.
+    instance: /api/v1/example
+    code: not_found
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_email_taken:
+  summary: Email already registered
+  value:
+    type: urn:pace:problem:email_taken
+    title: Email already registered
+    status: 409
+    detail: An account with this email already exists.
+    instance: /api/v1/example
+    code: email_taken
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_run_overlap:
+  summary: Run overlaps an existing run
+  value:
+    type: urn:pace:problem:run_overlap
+    title: Run overlaps an existing run
+    status: 409
+    detail: This run overlaps a valid run you already uploaded.
+    instance: /api/v1/example
+    code: run_overlap
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+    conflictingRunId: 019a3f77-81cd-7e10-a2f4-90b1d3c6e805
+problem_last_admin:
+  summary: Last admin
+  value:
+    type: urn:pace:problem:last_admin
+    title: Last admin
+    status: 409
+    detail: A group must keep at least one admin. Promote another member first.
+    instance: /api/v1/example
+    code: last_admin
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_invitation_not_applicable:
+  summary: Invitation not applicable
+  value:
+    type: urn:pace:problem:invitation_not_applicable
+    title: Invitation not applicable
+    status: 409
+    detail: Only private groups and competitions use invitations.
+    instance: /api/v1/example
+    code: invitation_not_applicable
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_competition_limit_reached:
+  summary: Competition limit reached
+  value:
+    type: urn:pace:problem:competition_limit_reached
+    title: Competition limit reached
+    status: 409
+    detail: You are already in the maximum number of open competitions (10).
+    instance: /api/v1/example
+    code: competition_limit_reached
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_competition_join_closed:
+  summary: Joining has closed
+  value:
+    type: urn:pace:problem:competition_join_closed
+    title: Joining has closed
+    status: 409
+    detail: This competition has passed its end time, so nobody can join.
+    instance: /api/v1/example
+    code: competition_join_closed
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_competition_leave_closed:
+  summary: Leaving has closed
+  value:
+    type: urn:pace:problem:competition_leave_closed
+    title: Leaving has closed
+    status: 409
+    detail: This competition has passed its end time, so you can no longer leave it.
+    instance: /api/v1/example
+    code: competition_leave_closed
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_competition_not_deletable:
+  summary: Competition cannot be deleted
+  value:
+    type: urn:pace:problem:competition_not_deletable
+    title: Competition cannot be deleted
+    status: 409
+    detail: Only a competition that has not started, with no other participants, can be deleted.
+    instance: /api/v1/example
+    code: competition_not_deletable
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_payload_too_large:
+  summary: Payload too large
+  value:
+    type: urn:pace:problem:payload_too_large
+    title: Payload too large
+    status: 413
+    detail: The request body exceeds the limit for this endpoint.
+    instance: /api/v1/example
+    code: payload_too_large
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_unsupported_media_type:
+  summary: Unsupported media type
+  value:
+    type: urn:pace:problem:unsupported_media_type
+    title: Unsupported media type
+    status: 415
+    detail: This endpoint does not accept that Content-Type.
+    instance: /api/v1/example
+    code: unsupported_media_type
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_validation_failed:
+  summary: Validation failed
+  value:
+    type: urn:pace:problem:validation_failed
+    title: Validation failed
+    status: 422
+    detail: One or more fields are invalid.
+    instance: /api/v1/example
+    code: validation_failed
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+    errors:
+      - field: displayName
+        code: too_long
+        message: Must be at most 50 characters.
+problem_weak_password:
+  summary: Weak password
+  value:
+    type: urn:pace:problem:weak_password
+    title: Weak password
+    status: 422
+    detail: The password is too short, or it is on the list of common passwords.
+    instance: /api/v1/example
+    code: weak_password
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+    errors:
+      - field: password
+        code: too_common
+        message: This password is too common.
+problem_image_invalid:
+  summary: Invalid image
+  value:
+    type: urn:pace:problem:image_invalid
+    title: Invalid image
+    status: 422
+    detail: The file is not a readable JPEG or PNG, or its dimensions are out of range.
+    instance: /api/v1/example
+    code: image_invalid
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_friend_self:
+  summary: Cannot befriend yourself
+  value:
+    type: urn:pace:problem:friend_self
+    title: Cannot befriend yourself
+    status: 422
+    detail: A friend request needs another user.
+    instance: /api/v1/example
+    code: friend_self
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_consent_required:
+  summary: Consent required
+  value:
+    type: urn:pace:problem:consent_required
+    title: Consent required
+    status: 422
+    detail: "Joining a public competition requires consentToPublicLeaderboard: true, because your name and score may appear in its public top N."
+    instance: /api/v1/example
+    code: consent_required
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_gpx_malformed:
+  summary: Malformed GPX
+  value:
+    type: urn:pace:problem:gpx_malformed
+    title: Malformed GPX
+    status: 422
+    detail: The file is not a usable GPX track.
+    instance: /api/v1/example
+    code: gpx_malformed
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_gpx_out_of_range:
+  summary: Run out of range
+  value:
+    type: urn:pace:problem:gpx_out_of_range
+    title: Run out of range
+    status: 422
+    detail: Distance must be at least 1 m, and duration at most 7 days.
+    instance: /api/v1/example
+    code: gpx_out_of_range
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_run_in_future:
+  summary: Run is in the future
+  value:
+    type: urn:pace:problem:run_in_future
+    title: Run is in the future
+    status: 422
+    detail: The run starts or ends in the future.
+    instance: /api/v1/example
+    code: run_in_future
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_run_too_old:
+  summary: Run is too old
+  value:
+    type: urn:pace:problem:run_too_old
+    title: Run is too old
+    status: 422
+    detail: Runs that started more than 30 days ago are not accepted.
+    instance: /api/v1/example
+    code: run_too_old
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_rate_limited:
+  summary: Too many requests
+  value:
+    type: urn:pace:problem:rate_limited
+    title: Too many requests
+    status: 429
+    detail: Rate limit exceeded. Try again after the time in the Retry-After header.
+    instance: /api/v1/example
+    code: rate_limited
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_internal_error:
+  summary: Internal error
+  value:
+    type: urn:pace:problem:internal_error
+    title: Internal error
+    status: 500
+    detail: Something went wrong. Quote the requestId when reporting this.
+    instance: /api/v1/example
+    code: internal_error
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_temporarily_unavailable:
+  summary: Temporarily unavailable
+  value:
+    type: urn:pace:problem:temporarily_unavailable
+    title: Temporarily unavailable
+    status: 503
+    detail: The service could not complete the request. It is safe to retry.
+    instance: /api/v1/example
+    code: temporarily_unavailable
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef
+problem_storage_unavailable:
+  summary: File storage unavailable
+  value:
+    type: urn:pace:problem:storage_unavailable
+    title: File storage unavailable
+    status: 503
+    detail: The file could not be stored. Nothing was saved, and it is safe to retry.
+    instance: /api/v1/example
+    code: storage_unavailable
+    requestId: 019a4c10-1111-7000-8000-abcdefabcdef

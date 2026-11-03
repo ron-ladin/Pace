@@ -1,0 +1,452 @@
+# Covers: Competition participants, joining and leaving, and invitations.
+# Read when: working on participation endpoints.
+# Related: ../openapi.yaml, competitions.yaml, invitations.yaml
+/competitions/{competitionId}/participants:
+  get:
+    operationId: listParticipants
+    tags:
+      - Competitions
+    summary: List participants
+    description: "Participants only. Includes people with no eligible run yet (`score: null`). Ordered by user ID, which the index provides. Use the leaderboard for ranks."
+    x-access-patterns:
+      - R5
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: competitionId
+        in: path
+        required: true
+        description: A competition ID.
+        schema:
+          type: string
+          format: uuid
+      - $ref: "../components/parameters.yaml#/Limit"
+      - $ref: "../components/parameters.yaml#/Cursor"
+    responses:
+      "200":
+        description: Participants.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+                - nextCursor
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "../components/schemas.yaml#/Participant"
+                nextCursor:
+                  $ref: "../components/schemas.yaml#/NextCursor"
+            example:
+              items:
+                - user:
+                    id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+                    displayName: Dana Levi
+                    photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+                  score: 31000
+                  joinedAt: 2026-11-01T07:00:00Z
+                - user:
+                    id: 0193f2a0-9e42-7a1b-8c33-1f6d2b7c9e02
+                    displayName: Noa Peretz
+                    photoUrl: null
+                  score: null
+                  joinedAt: 2026-11-02T07:00:00Z
+              nextCursor: null
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              invalid_cursor:
+                $ref: "../components/examples.yaml#/problem_invalid_cursor"
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              forbidden:
+                $ref: "../components/examples.yaml#/problem_forbidden"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/competitions/{competitionId}/participants/me:
+  put:
+    operationId: joinCompetition
+    tags:
+      - Competitions
+    summary: Join a competition, or accept its invitation
+    description: |-
+      Backfills the score from runs already in the window. A private competition needs an invitation (consumed by this call, so this is also how an invitation is accepted) or membership of the owning group.
+
+      Joining a public competition is consent to appear in its public top N, even with `runPrivacy: private` (D16), so the API requires the flag. Without it: 422 `consent_required`.
+
+      A participant repeating this call always gets 200, even at the limit or after `endsAt`.
+    x-access-patterns:
+      - W3
+      - W2
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: competitionId
+        in: path
+        required: true
+        description: A competition ID.
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: false
+      description: "Required for public competitions, with `consentToPublicLeaderboard: true`. Optional for private ones."
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas.yaml#/JoinCompetitionRequest"
+          example:
+            consentToPublicLeaderboard: true
+    responses:
+      "200":
+        description: Already a participant.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/Participation"
+            example:
+              competitionId: 019a2e65-1f30-7a88-b7d0-c42e91f7ab07
+              joinedAt: 2026-11-01T07:00:00Z
+              score: 31000
+      "201":
+        description: Joined.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/Participation"
+            example:
+              competitionId: 019a2e65-1f30-7a88-b7d0-c42e91f7ab07
+              joinedAt: 2026-11-03T10:00:00Z
+              score: 10240
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "409":
+        description: Conflicts with the current state.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              competition_limit_reached:
+                $ref: "../components/examples.yaml#/problem_competition_limit_reached"
+              competition_join_closed:
+                $ref: "../components/examples.yaml#/problem_competition_join_closed"
+      "413":
+        description: Body too large.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              payload_too_large:
+                $ref: "../components/examples.yaml#/problem_payload_too_large"
+      "415":
+        description: Unsupported Content-Type.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              unsupported_media_type:
+                $ref: "../components/examples.yaml#/problem_unsupported_media_type"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              consent_required:
+                $ref: "../components/examples.yaml#/problem_consent_required"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+  delete:
+    operationId: leaveCompetition
+    tags:
+      - Competitions
+    summary: Leave a competition
+    description: Allowed until `endsAt` (D39). Succeeds if already not a participant.
+    x-access-patterns:
+      - W3
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: competitionId
+        in: path
+        required: true
+        description: A competition ID.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Not a participant any more.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "409":
+        description: Conflicts with the current state.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              competition_leave_closed:
+                $ref: "../components/examples.yaml#/problem_competition_leave_closed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/competitions/{competitionId}/invitations/{userId}:
+  put:
+    operationId: inviteToCompetition
+    tags:
+      - Competitions
+    summary: Invite a user to a private competition
+    description: The creator or an admin of the owning group, and private competitions only. Already invited or already in is a harmless 204.
+    x-access-patterns:
+      - W3
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: competitionId
+        in: path
+        required: true
+        description: A competition ID.
+        schema:
+          type: string
+          format: uuid
+      - name: userId
+        in: path
+        required: true
+        description: A user ID.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: The user is invited, or is already in.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              forbidden:
+                $ref: "../components/examples.yaml#/problem_forbidden"
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "409":
+        description: Conflicts with the current state.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              invitation_not_applicable:
+                $ref: "../components/examples.yaml#/problem_invitation_not_applicable"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"

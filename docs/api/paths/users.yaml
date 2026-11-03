@@ -1,0 +1,341 @@
+# Covers: Finding users, and viewing other users' profiles, photos and runs.
+# Read when: working on user search or viewing other users.
+# Related: ../openapi.yaml, ../../design/api/endpoints.md
+/users:
+  get:
+    operationId: searchUsers
+    tags:
+      - Users
+    summary: Search users by display name
+    description: Substring match, at most `limit` results with no pagination. Returns cards only, never email. Sequential scan until measured.
+    x-access-patterns:
+      - R7
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: q
+        in: query
+        required: true
+        description: Text to find in display names.
+        schema:
+          type: string
+          minLength: 3
+          maxLength: 50
+      - name: limit
+        in: query
+        required: false
+        description: Maximum results.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 20
+    responses:
+      "200":
+        description: Matching users.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "../components/schemas.yaml#/UserCard"
+            example:
+              items:
+                - id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+                  displayName: Dana Levi
+                  photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+                - id: 0193f2a0-9e42-7a1b-8c33-1f6d2b7c9e02
+                  displayName: Noa Peretz
+                  photoUrl: null
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/users/{userId}:
+  get:
+    operationId: getUser
+    tags:
+      - Users
+    summary: Get a user card
+    description: "`city` is present only for the user's accepted friends and themselves. Deleted users return 404."
+    x-access-patterns:
+      - R7
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        description: A user ID.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The user card.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/UserCard"
+            example:
+              id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+              displayName: Dana Levi
+              photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+              city: Haifa
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/users/{userId}/photos/{photoId}:
+  get:
+    operationId: getUserPhoto
+    tags:
+      - Users
+    summary: Get a profile photo
+    description: Use the `photoUrl` returned by the API rather than building this URL. A new upload gets a new URL, so the response can be cached as immutable.
+    x-access-patterns:
+      - R7
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        description: A user ID.
+        schema:
+          type: string
+          format: uuid
+      - name: photoId
+        in: path
+        required: true
+        description: A photo ID, taken from `photoUrl`.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The image.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlImmutable"
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              contentMediaType: image/jpeg
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/users/{userId}/runs:
+  get:
+    operationId: listUserRuns
+    tags:
+      - Users
+    summary: List another user's runs
+    description: "Allowed by the target user's `runPrivacy`: `public` means any logged-in user, and `friends` means accepted friends. Valid runs only, without owner-only fields. Returns 403, not 404, because the viewer already knows the user exists."
+    x-access-patterns:
+      - R3
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        description: A user ID.
+        schema:
+          type: string
+          format: uuid
+      - $ref: "../components/parameters.yaml#/Limit"
+      - $ref: "../components/parameters.yaml#/Cursor"
+    responses:
+      "200":
+        description: Runs, newest first.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+                - nextCursor
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "../components/schemas.yaml#/Run"
+                nextCursor:
+                  $ref: "../components/schemas.yaml#/NextCursor"
+            example:
+              items:
+                - id: 019a4c10-22ab-7c44-8e01-3ad9f6b2c704
+                  source: gpx_upload
+                  startedAt: 2026-11-02T05:30:00Z
+                  endedAt: 2026-11-02T06:22:30Z
+                  distanceMeters: 10240
+                  durationSeconds: 3150
+                  paceSecondsPerKm: 308
+              nextCursor: null
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              invalid_cursor:
+                $ref: "../components/examples.yaml#/problem_invalid_cursor"
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              runs_not_visible:
+                $ref: "../components/examples.yaml#/problem_runs_not_visible"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"

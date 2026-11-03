@@ -2,6 +2,8 @@
 
 Most of these scripts check the schema in [`../database.md`](../database.md) against a real PostgreSQL 18 server. The results of the last run are in section 13 of that document. `check_classes.mjs` is different: it checks [`../classes.md`](../classes.md) against the contract and the other documents, and its results are in section 18 of that document.
 
+The design documents are split into topic files, so `database.md`, `api.md` and `classes.md` are indexes. Section numbers didn't change, and each index's section map names the file that holds a section. The scripts still take the index path, and rebuild the whole document with `read_split_doc.cjs`.
+
 > **These scripts are temporary.** They are meant to become automated tests (Testcontainers) during implementation. They use hand-written SQL in a forced order, so they don't replace the application race tests in section 11.3 of the design. They also aren't benchmarks.
 
 ## Files
@@ -18,6 +20,8 @@ Most of these scripts check the schema in [`../database.md`](../database.md) aga
 | `07_api_amendments.sql` | The API design's amendments and query plans, run after `03_plans.sql` on the same database |
 | `check_mermaid.mjs` | Parses the Mermaid diagrams in a Markdown file |
 | `check_classes.mjs` | Checks `classes.md`: module graph, inventory, traceability of endpoints, patterns, races, transactions and decisions, DTO fields against schemas, error codes and diagram class names |
+| `read_split_doc.cjs` | Rebuilds a split document from its index and topic files, for the other scripts |
+| `check_links.mjs` | Checks relative links and anchors, the decision log and its links, D-numbers, topic-file headers and index coverage |
 
 ## Requirements
 
@@ -100,6 +104,14 @@ node docs/design/verification/check_classes.mjs <temp-dir> .
 node docs/design/verification/check_mermaid.mjs <temp-dir> docs/design/classes.md
 ```
 
+### 4b. Check links and decision numbers
+
+This needs Node.js only, with no packages:
+
+```sh
+node docs/design/verification/check_links.mjs .
+```
+
 ### 5. Clean up
 
 ```sh
@@ -121,6 +133,7 @@ Also delete the generated `docs/design/verification/ddl_from_doc.sql` and `amend
 | `06_timeout_lock_wait.sql` | The same `FATAL` after about 1 second, with `while locking tuple` in the context. Exit code 2 |
 | `check_mermaid.mjs` | `PASS` for each block and the negative control, then `failed=0`, exit code 0 |
 | `check_classes.mjs` | `PASS` on every line, then `failed=0`, exit code 0 |
+| `check_links.mjs` | `PASS` on every line, then `failed=0`, exit code 0 |
 
 **The `FATAL` and exit code 2 in steps 04 and 06 are the correct result.** They show that the timeout terminates the connection.
 

@@ -1,0 +1,487 @@
+# Covers: The current user's profile, password, account deletion and photo.
+# Read when: working on account endpoints.
+# Related: ../openapi.yaml, ../../design/api/auth.md, ../../design/database/deletion-and-jobs.md
+/me:
+  get:
+    operationId: getMe
+    tags:
+      - Me
+    summary: Get the current user
+    description: Get the current user
+    x-access-patterns:
+      - R1
+      - W6
+    security:
+      - sessionCookie: []
+    responses:
+      "200":
+        description: The current user.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/CurrentUser"
+            example:
+              id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+              email: dana@example.com
+              displayName: Dana Levi
+              birthDate: 1998-04-12
+              city: Haifa
+              photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+              runPrivacy: friends
+              timeZone: Asia/Jerusalem
+              createdAt: 2026-01-15T18:20:00Z
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+  patch:
+    operationId: updateMe
+    tags:
+      - Me
+    summary: Edit profile and privacy
+    description: "JSON Merge Patch: an absent field is unchanged, and `null` clears it. `displayName`, `timeZone` and `runPrivacy` cannot be null. Last write wins."
+    x-access-patterns:
+      - W6
+    security:
+      - sessionCookie: []
+    requestBody:
+      required: true
+      content:
+        application/merge-patch+json:
+          schema:
+            $ref: "../components/schemas.yaml#/UpdateMeRequest"
+          example:
+            city: Haifa
+            birthDate: null
+            runPrivacy: friends
+    responses:
+      "200":
+        description: The updated user.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/CurrentUser"
+            example:
+              id: 0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01
+              email: dana@example.com
+              displayName: Dana Levi
+              birthDate: 1998-04-12
+              city: Haifa
+              photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+              runPrivacy: friends
+              timeZone: Asia/Jerusalem
+              createdAt: 2026-01-15T18:20:00Z
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "413":
+        description: Body too large.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              payload_too_large:
+                $ref: "../components/examples.yaml#/problem_payload_too_large"
+      "415":
+        description: Unsupported Content-Type.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              unsupported_media_type:
+                $ref: "../components/examples.yaml#/problem_unsupported_media_type"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/me/password:
+  put:
+    operationId: changePassword
+    tags:
+      - Me
+    summary: Change password
+    description: Requires the current password. Revokes all other sessions and issues a new token for this one.
+    x-access-patterns:
+      - W6
+    security:
+      - sessionCookie: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas.yaml#/ChangePasswordRequest"
+          example:
+            currentPassword: correct horse battery
+            newPassword: a much longer passphrase
+    responses:
+      "204":
+        description: Password changed.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+          Set-Cookie:
+            $ref: "../components/headers.yaml#/SetSessionCookie"
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              password_incorrect:
+                $ref: "../components/examples.yaml#/problem_password_incorrect"
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "413":
+        description: Body too large.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              payload_too_large:
+                $ref: "../components/examples.yaml#/problem_payload_too_large"
+      "415":
+        description: Unsupported Content-Type.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              unsupported_media_type:
+                $ref: "../components/examples.yaml#/problem_unsupported_media_type"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              weak_password:
+                $ref: "../components/examples.yaml#/problem_weak_password"
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/me/deletion:
+  post:
+    operationId: deleteAccount
+    tags:
+      - Me
+    summary: Delete account
+    description: "Phase 1 of the two-phase deletion (D29), in one transaction: wipes personal data and revokes all sessions. This cannot be undone. Uses POST because the password needs a body."
+    x-access-patterns:
+      - W6
+    security:
+      - sessionCookie: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas.yaml#/DeleteAccountRequest"
+          example:
+            password: correct horse battery
+    responses:
+      "204":
+        description: Account deleted.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+          Set-Cookie:
+            $ref: "../components/headers.yaml#/ClearSessionCookie"
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              password_incorrect:
+                $ref: "../components/examples.yaml#/problem_password_incorrect"
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "413":
+        description: Body too large.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              payload_too_large:
+                $ref: "../components/examples.yaml#/problem_payload_too_large"
+      "415":
+        description: Unsupported Content-Type.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              unsupported_media_type:
+                $ref: "../components/examples.yaml#/problem_unsupported_media_type"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/me/photo:
+  put:
+    operationId: putMyPhoto
+    tags:
+      - Me
+    summary: Set profile photo
+    description: The image is always re-encoded to a 512x512 JPEG, which removes EXIF data such as GPS coordinates.
+    x-access-patterns:
+      - W6
+    security:
+      - sessionCookie: []
+    requestBody:
+      required: true
+      description: Raw image bytes, at most 2 MB.
+      content:
+        image/jpeg:
+          schema:
+            type: string
+            contentMediaType: image/jpeg
+        image/png:
+          schema:
+            type: string
+            contentMediaType: image/png
+    responses:
+      "200":
+        description: Photo stored.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/PhotoResponse"
+            example:
+              photoUrl: /api/v1/users/0193f2a0-7c11-7d3e-9a10-5b2c8e4f1a01/photos/019a4c20-6bd1-7e93-a5c8-2f0b7d9e1c09
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "413":
+        description: Body too large.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              payload_too_large:
+                $ref: "../components/examples.yaml#/problem_payload_too_large"
+      "415":
+        description: Unsupported Content-Type.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              unsupported_media_type:
+                $ref: "../components/examples.yaml#/problem_unsupported_media_type"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              image_invalid:
+                $ref: "../components/examples.yaml#/problem_image_invalid"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+  delete:
+    operationId: deleteMyPhoto
+    tags:
+      - Me
+    summary: Remove profile photo
+    description: Remove profile photo
+    x-access-patterns:
+      - W6
+    security:
+      - sessionCookie: []
+    responses:
+      "204":
+        description: Photo removed, or there was none.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"

@@ -11,10 +11,12 @@ const require = createRequire(path.join(depsDir, 'package.json'));
 const YAML = require('yaml');
 const Ajv2020 = require('ajv/dist/2020').default;
 const addFormats = require('ajv-formats').default;
+const localRequire = createRequire(import.meta.url);
+const { readSplitDoc } = localRequire('../../design/verification/read_split_doc.cjs');
+const { loadSpec } = localRequire('./load_spec.cjs');
 
-const read = p => fs.readFileSync(path.join(root, p), 'utf8').replace(/\r\n/g, '\n');
-const specText = read('docs/api/openapi.yaml');
-const spec = YAML.parse(specText);
+const read = p => readSplitDoc(path.join(root, p));
+const { spec, text: specText } = loadSpec(YAML, path.join(root, 'docs/api'));
 const apiMd = read('docs/design/api.md');
 const dbMd = read('docs/design/database.md');
 const arch = read('ARCHITECTURE.md');
@@ -204,6 +206,30 @@ for (const m of apiMd.matchAll(/`(GET|PUT|POST|PATCH|DELETE) (\/[^`?\s]*)[^`]*`/
 if (!/docs\/design\/api\.md|design\/api\.md/.test(arch)) fail('ARCHITECTURE.md does not link to api.md');
 if (!/docs\/api\/openapi\.yaml/.test(arch)) fail('ARCHITECTURE.md does not link to openapi.yaml');
 check(`cross-references resolve (${logged.size} decisions in the log, indexes, endpoints, document links)`, n);
+
+// ---------- 8. Bundling keeps every component ----------
+// The root doesn't list components by name, so the bundler only keeps the ones something references.
+n = failures.length;
+const refs = new Set();
+const collectRefs = x => {
+  if (Array.isArray(x)) x.forEach(collectRefs);
+  else if (x && typeof x === 'object') {
+    for (const [k, v] of Object.entries(x)) {
+      if (k === '$ref' && typeof v === 'string') refs.add(v);
+      else collectRefs(v);
+    }
+  }
+};
+collectRefs(spec);
+let componentCount = 0;
+for (const [group, items] of Object.entries(spec.components)) {
+  if (group === 'securitySchemes') continue;
+  for (const name of Object.keys(items)) {
+    componentCount++;
+    if (!refs.has(`#/components/${group}/${name}`)) fail(`component ${group}/${name} is not referenced, so the bundle would drop it`);
+  }
+}
+check(`all ${componentCount} components are referenced, so the bundle keeps them`, n);
 
 if (failures.length) {
   console.log('\nProblems:');

@@ -1,4 +1,4 @@
-# Lint rules for docs/api/openapi.yaml. See docs/api/verification/README.md for how to run them.
+# Lint rules for the bundled contract, docs/api/dist/openapi.bundled.yaml. See docs/api/verification/README.md for how to run them.
 extends: [["spectral:oas", "recommended"]]
 
 rules:

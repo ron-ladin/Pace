@@ -10,10 +10,13 @@ const depsDir = path.resolve(process.argv[2]);
 const root = path.resolve(process.argv[3]);
 const require = createRequire(path.join(depsDir, 'package.json'));
 const YAML = require('yaml');
+const localRequire = createRequire(import.meta.url);
+const { readSplitDoc } = localRequire('./read_split_doc.cjs');
+const { loadSpec } = localRequire('../../api/verification/load_spec.cjs');
 
-const read = p => fs.readFileSync(path.join(root, p), 'utf8').replace(/\r\n/g, '\n');
+const read = p => readSplitDoc(path.join(root, p));
 const doc = read('docs/design/classes.md');
-const spec = YAML.parse(read('docs/api/openapi.yaml'));
+const { spec } = loadSpec(YAML, path.join(root, 'docs/api'));
 const apiMd = read('docs/design/api.md');
 const dbMd = read('docs/design/database.md');
 const arch = read('ARCHITECTURE.md');

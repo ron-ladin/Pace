@@ -14,13 +14,7 @@
 
 ## 1. Working Agreement (for Claude and other assistants)
 
-- The project owner is a third-year CS student with limited industry experience. The assistant acts as **tech lead**: it gives its honest opinion, challenges decisions with reasoning (even when it disagrees with the owner), and makes decisions jointly with the owner.
-- **Learning is a primary goal**, equal to shipping the product. Explain trade-offs and why, not just what.
-- **Work top-down:** requirements -> non-functional requirements -> load estimates -> access patterns -> high-level architecture -> detailed design per topic -> implementation. Do **not** jump to detailed design or code before the previous level is agreed.
-- Every significant decision gets a short ADR entry (see the decision log). Do not silently change an agreed decision; propose the change and explain why.
-- Prefer **measure first, then add complexity**. Distributed components (cache, queue, replicas, service splits) must be justified by measurements from load tests, not by intuition.
-- **Zero-cost constraint:** only free and open-source tools and free tiers.
-- Language: conversation replies are in **English**. All repository artifacts (code, docs, comments, commit messages) are also in **English**.
+Moved verbatim to [CLAUDE.md](CLAUDE.md), which Claude Code loads at the start of every session. The heading stays here so that section numbers don't change.
 
 ---
 
@@ -306,73 +300,73 @@ The full layout, down to class names, is in [docs/design/classes.md](docs/design
 
 ## 10. Decision Log
 
-| ID | Decision | Status |
-|---|---|---|
-| D1 | Language/framework: Java 21+ with Spring Boot | Decided |
-| D2 | Client: PWA first; native mobile only if the product succeeds | Decided |
-| D3 | Runtime: Docker Compose; local development is the main learning environment | Decided |
-| D4 | Zero-cost: free/open-source tools only | Decided |
-| D5 | Architecture: **modular monolith** plus a background worker (same codebase). Split services only with a measured reason | Decided |
-| D6 | PostgreSQL is the system of record | Decided |
-| D7 | Raw GPX files in object storage (MinIO); DB stores references and summaries. GPS points are **not** stored one-per-row | Decided |
-| D8 | Redis only after measurement; derived and rebuildable; if used for both cache and queue, use **separate instances** (eviction policy conflict) | Decided (conditional) |
-| D9 | Message queue technology | **OPEN** |
-| D10 | Reliable event publishing via the **Outbox pattern**, deferred until after baseline measurements | Decided (amended, see D26) |
-| D11 | Run sources: **GPX upload only**. Strava is **excluded** (its API terms since Nov 2024 forbid showing a user's activity data to other users, which breaks competitions/feed). Ingestion is built around a source adapter abstraction so live recording and other providers can be added later | Decided |
-| D12 | Only running is supported (no walking/cycling) | Decided |
-| D13 | Competition closure is by **server receive time**, not timestamps inside the file. A run counts if it **started inside the window** and was **received before `closes_at`**, where `closes_at = ends_at + grace` (see D28) | Decided (amended) |
-| D14 | Users cannot delete runs. Runs have a status marking implausible runs `invalid`, set automatically at ingest. No manual invalidation in Phase 1. Account deletion is supported | Decided (amended) |
-| D15 | Ties share the same rank | Decided |
-| D16 | Public competitions: anyone, including logged-out visitors, can view the top **N** (default 10, configurable) with display name and the metric only (no route, location, user ID or personal details). Joining a public competition is consent to appear there, even with `run_privacy = 'private'`. The join UI must say so, and the API requires an explicit consent flag (D55) | Decided (amended) |
-| D17 | A deleted user is removed from leaderboards **at read time** (filtered) and ranks are recomputed, then their scores are **physically purged** shortly after (see D29). Slight rank shifts in closed competitions are acceptable | Decided (amended) |
-| D18 | Scoring via the Strategy pattern per rule type, by **recalculation instead of incremental update** (see D27); no write when the score does not change | Decided (amended) |
-| D19 | Each run is evaluated against all active competitions of the runner | Decided |
-| D20 | Groups (long-lived communities) and competitions (time-boxed events) are separate entities; a competition may optionally belong to a group | Decided |
-| D21 | Phasing: area-coverage competition, achievements, feed in Phase 2; partner matching in Phase 3 | Decided |
-| D22 | SLOs: 99% availability, leaderboard freshness <= 30 s, latency targets as in section 5 | Decided |
-| D23 | Capacity: design for 5,000 users, operate at hundreds, load-test synthetically beyond | Decided |
-| D24 | Identifiers: UUIDv7 for primary keys. Exception: the deferred outbox table uses `bigint` | Decided |
-| D25 | DB constraint preventing overlapping **valid** runs of the same user (`EXCLUDE` on a time range, requires `btree_gist`) | Decided |
-| D26 | Synchronous scoring first: scores update inside the ingest transaction, and ingest returns 201. Outbox and queue are deferred until after baseline measurements, then measured before and after | Decided |
-| D27 | Scoring recalculates from all eligible runs (idempotent, independent of order). Eligible: valid, started inside the window, received before `closes_at` | Decided |
-| D28 | Grace period defaults to 6 hours, configurable, 0 allowed. `closes_at` stores `ends_at + grace`. The UI shows a "finalizing" state until closure | Decided |
-| D29 | Two-phase account deletion: immediately wipe personal data and filter at read time, then a background sweeper purges files and rows | Decided |
-| D30 | GPX is parsed synchronously in the API. No `pending` status. No manual invalidation in Phase 1 | Decided |
-| D31 | Runs inside the window before joining count, by recalculating the score on join (backfill) | Decided |
-| D32 | Private groups are invitation-only in Phase 1, with no join requests | Decided |
-| D33 | `READ COMMITTED` isolation plus constraints and explicit row locks. Lock order: user, then groups by ascending ID, then competitions by ascending ID, with each competition's participant directly after that competition (database.md CLS-2) | Decided (amended) |
-| D34 | A per-user row lock serializes ingest and join, so a run can't be missed by both | Decided |
-| D35 | Module boundaries: one schema, documented read-only cross-module exceptions (listed in section 7.3, each in one named class), writes only through the owning module. Foreign-key cascades are declared schema behavior, not application writes | Decided (amended) |
-| D36 | Run sanity: the API rejects runs that start or end in the future, or start more than 30 days ago (configurable), because file timestamps are user-controlled. `duration_s` is limited to 7 days in the schema as a backstop against generated-column overflow; this is not a product rule, and stricter plausibility thresholds are in D49. "In the future" allows 2 minutes of configurable tolerance for device clock drift | Decided (amended) |
-| D37 | Migrations: Flyway, forward-only, never edit applied migrations, sequential `V0001__name.sql` naming, separate migration and application roles | Decided |
-| D38 | Design iteratively; measure before adding distributed components | Decided |
-| D39 | Leaving a competition is allowed only until `ends_at`, and refused from then on, to prevent leaving to avoid a poor final placement | Decided |
-| D40 | Backend code structure: package by feature, layered web -> service -> persistence, with downward dependencies only, enforced by ArchUnit tests. MVC and MVVM don't apply to a JSON API. Full Hexagonal/Clean Architecture and package-by-layer are rejected (section 7.5). Extended by D58 | Decided |
-| D41 | API style: REST and JSON under `/api/v1`, camelCase, units in field names, open enums for values that will grow, strict requests and tolerant readers. Breaking changes need `/api/v2`, or deprecation with at least 30 days of overlap | Decided |
-| D42 | The PWA and the API share one origin through the reverse proxy, so there is no CORS | Decided |
-| D43 | Authentication: opaque random session tokens, stored as SHA-256 hashes in PostgreSQL, sent in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie. Sliding 30 days, absolute 90 days. No JWT, because revocation must be immediate. No bearer token until a native client exists | Decided |
-| D44 | CSRF: `SameSite=Strict`, plus a server check of `Sec-Fetch-Site` with `Origin` as the fallback. Requests with neither are rejected. No CSRF tokens | Decided |
-| D45 | Errors: RFC 9457 Problem Details, with a stable machine-readable `code` and the `requestId` in every body | Decided |
-| D46 | Authorization responses: can't see it returns 404, and can see it but can't do this returns 403, so private resources can't be discovered by probing | Decided |
-| D47 | Keyset pagination with an opaque cursor, and one fixed index-backed order per list. No `sort` parameter and no total counts in lists | Decided |
-| D48 | Run upload: raw `application/gpx+xml` body up to 20 MB, spooled to disk. Duplicate check before parsing. A new run returns 201, and an existing one returns 200. The response doesn't list affected competitions | Decided |
-| D49 | Starting plausibility thresholds, configurable: pace under 150 or over 1,800 s/km, a GPS segment over 15 m/s for at least 50 m, duration over 48 hours. Tuning stays in open question 6 | Decided |
-| D50 | Email verification and password reset are deferred, and **must ship before opening to the public**. Until then, a forgotten password means a lost account, and registration reveals which emails exist | Decided |
-| D51 | Leaderboard freshness by polling every 25 s while visible, with ETags that exclude `asOf`, and a server-set `pollIntervalSeconds`. SSE deferred, for reasons of simplicity rather than capacity | Decided |
-| D52 | Contract-first: `docs/api/openapi.yaml` (OpenAPI 3.1) is hand-maintained and the source of truth, linted with Spectral | Decided |
-| D53 | Rate limiting in the app with in-memory state (Bucket4j), failing open. No database table and no Redis for it now | Decided |
-| D54 | Users find each other by display-name search, logged in only. Other users' runs are viewable as `run_privacy` allows, where `public` means any logged-in user. Invalid runs and stats are owner-only | Decided |
-| D55 | A competition's creator joins automatically, in the same transaction. Public competitions require an explicit consent flag in the API, both on creating and on joining | Decided |
-| D56 | No `Idempotency-Key` and no `If-Match` in Phase 1. Groups and competitions can't be edited. A creator can delete a competition before it starts, while they are its only participant | Decided |
-| D57 | Data access: Spring `JdbcClient` with plain SQL in repository classes, and no ORM. The cost is no JPA experience from this codebase, and no compile-time SQL checks, so every repository method needs a Testcontainers test. jOOQ is the runner-up. Repositories are concrete classes, not interfaces | Decided |
-| D58 | Module structure: a strict dependency chain `leaderboards -> competitions -> runs -> social -> identity -> platform`. Extends D40 with `api/` (each module's public contract) and `domain/` (plain types) packages. Package-private can't span D40's sub-packages, so ArchUnit enforces module boundaries, and package-private is used only inside one layer | Decided |
-| D59 | Calls that must go up the chain use callback interfaces owned by the lower module: `SessionAuthenticator`, `AccountDeletionParticipant`, `AccountPurgeParticipant`, `RunAcceptedListener`. Spring events are rejected, because they would hide ordering and failure behavior. `RunAcceptedListener` is the Outbox seam | Decided |
-| D60 | Write transactions go through `TransactionRunner`, an execute-around helper, instead of `@Transactional`: it sets `transaction_timeout` on every write transaction and retries the whole transaction on `40P01`. Its body can run more than once, so nothing non-transactional goes inside | Decided |
-| D61 | Every row lock goes through one class, `RowLocks`, which checks the D33 order at run time per transaction and fails on a violation. A source-scan test rejects lock clauses anywhere else, except the sweeper's `SKIP LOCKED`. A compile-time staged builder is rejected, because it can't check sort order | Decided |
-| D62 | Domain model: rich only where invariants exist (`Competition`, `NewCompetition`, `Rule`, `PlausibilityRules`, `FriendPair`), and plain records elsewhere. Typed IDs yes. Value objects for distance, duration and pace no, except `RunMetrics`. Scoring strategies choose an aggregate, and the SQL stays in persistence. Eligibility is one SQL fragment, with no Java copy. The D11 seam is the `ParsedRun` record, not an interface. The one new port is `FileStore` | Decided |
-| D63 | Time: anything compared against a stored competition or session time uses the database clock, with `now()` selected alongside the row and passed to domain methods. Coarse validation of client input uses `java.time.Clock` | Decided |
-| D64 | Errors: one `ErrorCode` enum holds the catalog, including statuses. One `ApiException` carries a code, a detail and optional extensions. `ProblemFactory` is the only place that builds a Problem. No exception class per code | Decided |
-| D65 | Response shapes: separate records where the shape differs (`RunDto` and `OwnRunDto`, `TopNEntryDto` and `FullEntryDto`). `JsonNullable` where a field has three states (absent, null, value), and for `PATCH /me` requests. Its Jackson 3 and record support must be checked in the vertical slice | Decided |
+| ID | Decision | Status | Rationale |
+|---|---|---|---|
+| D1 | Language/framework: Java 21+ with Spring Boot | Decided | [section 8](#8-technology-stack) |
+| D2 | Client: PWA first; native mobile only if the product succeeds | Decided | [section 8](#8-technology-stack) |
+| D3 | Runtime: Docker Compose; local development is the main learning environment | Decided | [section 9](#9-hosting-and-environments) |
+| D4 | Zero-cost: free/open-source tools only | Decided | [section 5](#5-non-functional-requirements) |
+| D5 | Architecture: **modular monolith** plus a background worker (same codebase). Split services only with a measured reason | Decided | [section 7.3](#73-backend-modules-inside-the-modular-monolith) |
+| D6 | PostgreSQL is the system of record | Decided | [section 8](#8-technology-stack) |
+| D7 | Raw GPX files in object storage (MinIO); DB stores references and summaries. GPS points are **not** stored one-per-row | Decided | ["Load estimates"](#load-estimates) |
+| D8 | Redis only after measurement; derived and rebuildable; if used for both cache and queue, use **separate instances** (eviction policy conflict) | Decided (conditional) | [section 8](#8-technology-stack) |
+| D9 | Message queue technology | **OPEN** | [section 12](#12-open-questions-and-next-steps) |
+| D10 | Reliable event publishing via the **Outbox pattern**, deferred until after baseline measurements | Decided (amended, see D26) | [database 9](docs/design/database/outbox.md#9-milestone-async-scoring-via-outbox--queue-deferred) |
+| D11 | Run sources: **GPX upload only**. Strava is **excluded** (its API terms since Nov 2024 forbid showing a user's activity data to other users, which breaks competitions/feed). Ingestion is built around a source adapter abstraction so live recording and other providers can be added later | Decided | [classes 1.2](docs/design/classes.md#12-where-this-design-disagrees-with-earlier-decisions-or-leanings) |
+| D12 | Only running is supported (no walking/cycling) | Decided | ["Product Summary"](#product-summary) |
+| D13 | Competition closure is by **server receive time**, not timestamps inside the file. A run counts if it **started inside the window** and was **received before `closes_at`**, where `closes_at = ends_at + grace` (see D28) | Decided (amended) | [database 6.5](docs/design/database/transactions.md#65-closing-versus-a-late-upload-w4-d13) |
+| D14 | Users cannot delete runs. Runs have a status marking implausible runs `invalid`, set automatically at ingest. No manual invalidation in Phase 1. Account deletion is supported | Decided (amended) | ["Runs"](#runs) |
+| D15 | Ties share the same rank | Decided | [api 12.3](docs/design/api/competition-semantics.md#123-ranks-and-ties) |
+| D16 | Public competitions: anyone, including logged-out visitors, can view the top **N** (default 10, configurable) with display name and the metric only (no route, location, user ID or personal details). Joining a public competition is consent to appear there, even with `run_privacy = 'private'`. The join UI must say so, and the API requires an explicit consent flag (D55) | Decided (amended) | [database 7.4](docs/design/database/indexes-and-queries.md#74-public-competitions-and-privacy-d16) |
+| D17 | A deleted user is removed from leaderboards **at read time** (filtered) and ranks are recomputed, then their scores are **physically purged** shortly after (see D29). Slight rank shifts in closed competitions are acceptable | Decided (amended) | [database 6.6](docs/design/database/deletion-and-jobs.md#66-account-deletion-w6-d17-d29) |
+| D18 | Scoring via the Strategy pattern per rule type, by **recalculation instead of incremental update** (see D27); no write when the score does not change | Decided (amended) | [database 6.2](docs/design/database/transactions.md#62-scoring-by-recalculation) |
+| D19 | Each run is evaluated against all active competitions of the runner | Decided | ["Competitions"](#competitions) |
+| D20 | Groups (long-lived communities) and competitions (time-boxed events) are separate entities; a competition may optionally belong to a group | Decided | [database 3.3](docs/design/database/schema.md#33-competitions) |
+| D21 | Phasing: area-coverage competition, achievements, feed in Phase 2; partner matching in Phase 3 | Decided | [section 3](#3-phases) |
+| D22 | SLOs: 99% availability, leaderboard freshness <= 30 s, latency targets as in section 5 | Decided | [section 5](#5-non-functional-requirements) |
+| D23 | Capacity: design for 5,000 users, operate at hundreds, load-test synthetically beyond | Decided | ["Load estimates"](#load-estimates) |
+| D24 | Identifiers: UUIDv7 for primary keys. Exception: the deferred outbox table uses `bigint` | Decided | [database 12.1](docs/design/database/schema.md#121-d24-uuidv7) |
+| D25 | DB constraint preventing overlapping **valid** runs of the same user (`EXCLUDE` on a time range, requires `btree_gist`) | Decided | [database 12.2](docs/design/database/schema.md#122-d25-overlap-exclusion-constraint) |
+| D26 | Synchronous scoring first: scores update inside the ingest transaction, and ingest returns 201. Outbox and queue are deferred until after baseline measurements, then measured before and after | Decided | [database 9](docs/design/database/outbox.md#9-milestone-async-scoring-via-outbox--queue-deferred) |
+| D27 | Scoring recalculates from all eligible runs (idempotent, independent of order). Eligible: valid, started inside the window, received before `closes_at` | Decided | [database 6.2](docs/design/database/transactions.md#62-scoring-by-recalculation) |
+| D28 | Grace period defaults to 6 hours, configurable, 0 allowed. `closes_at` stores `ends_at + grace`. The UI shows a "finalizing" state until closure | Decided | [section 7.4](#74-scoring-design) |
+| D29 | Two-phase account deletion: immediately wipe personal data and filter at read time, then a background sweeper purges files and rows | Decided | [database 6.6](docs/design/database/deletion-and-jobs.md#66-account-deletion-w6-d17-d29) |
+| D30 | GPX is parsed synchronously in the API. No `pending` status. No manual invalidation in Phase 1 | Decided | [section 7.2](#72-run-upload-flow) |
+| D31 | Runs inside the window before joining count, by recalculating the score on join (backfill) | Decided | [database 6.4](docs/design/database/transactions.md#64-joining-and-leaving-w3) |
+| D32 | Private groups are invitation-only in Phase 1, with no join requests | Decided | [database 3.5](docs/design/database/schema.md#35-social-tables) |
+| D33 | `READ COMMITTED` isolation plus constraints and explicit row locks. Lock order: user, then groups by ascending ID, then competitions by ascending ID, with each competition's participant directly after that competition (database.md CLS-2) | Decided (amended) | [database 6.1](docs/design/database/transactions.md#61-isolation-level) |
+| D34 | A per-user row lock serializes ingest and join, so a run can't be missed by both | Decided | [database 6.4](docs/design/database/transactions.md#64-joining-and-leaving-w3) |
+| D35 | Module boundaries: one schema, documented read-only cross-module exceptions (listed in section 7.3, each in one named class), writes only through the owning module. Foreign-key cascades are declared schema behavior, not application writes | Decided (amended) | [classes 2.5](docs/design/classes/modules.md#25-documented-read-only-exceptions-d35) |
+| D36 | Run sanity: the API rejects runs that start or end in the future, or start more than 30 days ago (configurable), because file timestamps are user-controlled. `duration_s` is limited to 7 days in the schema as a backstop against generated-column overflow; this is not a product rule, and stricter plausibility thresholds are in D49. "In the future" allows 2 minutes of configurable tolerance for device clock drift | Decided (amended) | [api 7.2](docs/design/api/upload.md#72-order-of-validation) |
+| D37 | Migrations: Flyway, forward-only, never edit applied migrations, sequential `V0001__name.sql` naming, separate migration and application roles | Decided | [database 10](docs/design/database/migrations.md#10-flyway-migrations) |
+| D38 | Design iteratively; measure before adding distributed components | Decided | [database 11.4](docs/design/database/validation.md#114-what-would-justify-adding-more) |
+| D39 | Leaving a competition is allowed only until `ends_at`, and refused from then on, to prevent leaving to avoid a poor final placement | Decided | [database 6.4](docs/design/database/transactions.md#64-joining-and-leaving-w3) |
+| D40 | Backend code structure: package by feature, layered web -> service -> persistence, with downward dependencies only, enforced by ArchUnit tests. MVC and MVVM don't apply to a JSON API. Full Hexagonal/Clean Architecture and package-by-layer are rejected (section 7.5). Extended by D58 | Decided | [section 7.5](#75-backend-code-structure-d40) |
+| D41 | API style: REST and JSON under `/api/v1`, camelCase, units in field names, open enums for values that will grow, strict requests and tolerant readers. Breaking changes need `/api/v2`, or deprecation with at least 30 days of overlap | Decided | [api 3.1](docs/design/api/conventions.md#31-rest-json-apiv1-d41) |
+| D42 | The PWA and the API share one origin through the reverse proxy, so there is no CORS | Decided | [api 3.2](docs/design/api/conventions.md#32-same-origin-d42) |
+| D43 | Authentication: opaque random session tokens, stored as SHA-256 hashes in PostgreSQL, sent in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie. Sliding 30 days, absolute 90 days. No JWT, because revocation must be immediate. No bearer token until a native client exists | Decided | [api 8.1](docs/design/api/auth.md#81-opaque-session-tokens-in-a-cookie-d43) |
+| D44 | CSRF: `SameSite=Strict`, plus a server check of `Sec-Fetch-Site` with `Origin` as the fallback. Requests with neither are rejected. No CSRF tokens | Decided | [api 8.4](docs/design/api/auth.md#84-csrf-d44) |
+| D45 | Errors: RFC 9457 Problem Details, with a stable machine-readable `code` and the `requestId` in every body | Decided | [api 10.1](docs/design/api/errors-and-concurrency.md#101-shape-d45) |
+| D46 | Authorization responses: can't see it returns 404, and can see it but can't do this returns 403, so private resources can't be discovered by probing | Decided | [api 9.1](docs/design/api/auth.md#91-404-versus-403-d46) |
+| D47 | Keyset pagination with an opaque cursor, and one fixed index-backed order per list. No `sort` parameter and no total counts in lists | Decided | [api 6.1](docs/design/api/conventions.md#61-keyset-pagination-d47) |
+| D48 | Run upload: raw `application/gpx+xml` body up to 20 MB, spooled to disk. Duplicate check before parsing. A new run returns 201, and an existing one returns 200. The response doesn't list affected competitions | Decided | [api 7.1](docs/design/api/upload.md#71-format-d48) |
+| D49 | Starting plausibility thresholds, configurable: pace under 150 or over 1,800 s/km, a GPS segment over 15 m/s for at least 50 m, duration over 48 hours. Tuning stays in open question 6 | Decided | [api 7.5](docs/design/api/upload.md#75-plausibility-thresholds-d49) |
+| D50 | Email verification and password reset are deferred, and **must ship before opening to the public**. Until then, a forgotten password means a lost account, and registration reveals which emails exist | Decided | [api 8.6](docs/design/api/auth.md#86-email-flows-deferred-with-a-hard-gate-d50) |
+| D51 | Leaderboard freshness by polling every 25 s while visible, with ETags that exclude `asOf`, and a server-set `pollIntervalSeconds`. SSE deferred, for reasons of simplicity rather than capacity | Decided | [api 19](docs/design/api/competition-semantics.md#19-polling-versus-push) |
+| D52 | Contract-first: `docs/api/openapi.yaml` (OpenAPI 3.1) is hand-maintained and the source of truth, linted with Spectral | Decided | [api 17.1](docs/design/api/contract-and-verification.md#171-contract-first-d52) |
+| D53 | Rate limiting in the app with in-memory state (Bucket4j), failing open. No database table and no Redis for it now | Decided | [api 14.1](docs/design/api/limits-security-observability.md#141-limits-d53) |
+| D54 | Users find each other by display-name search, logged in only. Other users' runs are viewable as `run_privacy` allows, where `public` means any logged-in user. Invalid runs and stats are owner-only | Decided | [api 4.1](docs/design/api/endpoints.md#41-finding-people-and-viewing-their-data-d54) |
+| D55 | A competition's creator joins automatically, in the same transaction. Public competitions require an explicit consent flag in the API, both on creating and on joining | Decided | [api 12.4](docs/design/api/competition-semantics.md#124-consent-d55-amends-d16) |
+| D56 | No `Idempotency-Key` and no `If-Match` in Phase 1. Groups and competitions can't be edited. A creator can delete a competition before it starts, while they are its only participant | Decided | [api 11.1](docs/design/api/errors-and-concurrency.md#111-every-write-d56) |
+| D57 | Data access: Spring `JdbcClient` with plain SQL in repository classes, and no ORM. The cost is no JPA experience from this codebase, and no compile-time SQL checks, so every repository method needs a Testcontainers test. jOOQ is the runner-up. Repositories are concrete classes, not interfaces | Decided | [classes 7.1](docs/design/classes/persistence.md#71-technology-jdbcclient-with-plain-sql-d57) |
+| D58 | Module structure: a strict dependency chain `leaderboards -> competitions -> runs -> social -> identity -> platform`. Extends D40 with `api/` (each module's public contract) and `domain/` (plain types) packages. Package-private can't span D40's sub-packages, so ArchUnit enforces module boundaries, and package-private is used only inside one layer | Decided | [classes 2.6](docs/design/classes/modules.md#26-inside-a-module-d58) |
+| D59 | Calls that must go up the chain use callback interfaces owned by the lower module: `SessionAuthenticator`, `AccountDeletionParticipant`, `AccountPurgeParticipant`, `RunAcceptedListener`. Spring events are rejected, because they would hide ordering and failure behavior. `RunAcceptedListener` is the Outbox seam | Decided | [classes 2.3](docs/design/classes/modules.md#23-calls-that-go-up-the-chain-d59) |
+| D60 | Write transactions go through `TransactionRunner`, an execute-around helper, instead of `@Transactional`: it sets `transaction_timeout` on every write transaction and retries the whole transaction on `40P01`. Its body can run more than once, so nothing non-transactional goes inside | Decided | [classes 7.5](docs/design/classes/persistence.md#75-transactionrunner-d60) |
+| D61 | Every row lock goes through one class, `RowLocks`, which checks the D33 order at run time per transaction and fails on a violation. A source-scan test rejects lock clauses anywhere else, except the sweeper's `SKIP LOCKED`. A compile-time staged builder is rejected, because it can't check sort order | Decided | [classes 7.4](docs/design/classes/persistence.md#74-rowlocks-the-lock-order-helper-d61) |
+| D62 | Domain model: rich only where invariants exist (`Competition`, `NewCompetition`, `Rule`, `PlausibilityRules`, `FriendPair`), and plain records elsewhere. Typed IDs yes. Value objects for distance, duration and pace no, except `RunMetrics`. Scoring strategies choose an aggregate, and the SQL stays in persistence. Eligibility is one SQL fragment, with no Java copy. The D11 seam is the `ParsedRun` record, not an interface. The one new port is `FileStore` | Decided | [classes 5.1](docs/design/classes/domain-and-patterns.md#51-whats-rich-and-what-isnt) |
+| D63 | Time: anything compared against a stored competition or session time uses the database clock, with `now()` selected alongside the row and passed to domain methods. Coarse validation of client input uses `java.time.Clock` | Decided | [classes 11](docs/design/classes/domain-and-patterns.md#11-time-d63) |
+| D64 | Errors: one `ErrorCode` enum holds the catalog, including statuses. One `ApiException` carries a code, a detail and optional extensions. `ProblemFactory` is the only place that builds a Problem. No exception class per code | Decided | [classes 9.3](docs/design/classes/cross-cutting.md#93-exceptions-and-problem-details-d64) |
+| D65 | Response shapes: separate records where the shape differs (`RunDto` and `OwnRunDto`, `TopNEntryDto` and `FullEntryDto`). `JsonNullable` where a field has three states (absent, null, value), and for `PATCH /me` requests. Its Jackson 3 and record support must be checked in the vertical slice | Decided | [classes 9.10](docs/design/classes/cross-cutting.md#910-absent-versus-null-in-responses-d65) |
 
 ---
 

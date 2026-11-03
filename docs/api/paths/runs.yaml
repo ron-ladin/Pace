@@ -1,0 +1,450 @@
+# Covers: GPX upload, run history, a single run and personal stats.
+# Read when: working on run endpoints.
+# Related: ../openapi.yaml, ../../design/api/upload.md
+/me/stats:
+  get:
+    operationId: getMyStats
+    tags:
+      - Runs
+    summary: Get personal stats
+    description: Weekly and monthly totals in the user's time zone, plus personal bests. Valid runs only.
+    x-access-patterns:
+      - R4
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: weeks
+        in: query
+        required: false
+        description: How many weeks to return, newest first. Weeks with no runs are included, with zeros.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 52
+          default: 12
+      - name: months
+        in: query
+        required: false
+        description: How many months to return, newest first. Months with no runs are included, with zeros.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 24
+          default: 12
+      - name: weekStart
+        in: query
+        required: false
+        description: The first day of a week.
+        schema:
+          type: string
+          enum:
+            - monday
+            - sunday
+          default: monday
+    responses:
+      "200":
+        description: Personal stats. The example is shortened to one week and one month.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/Stats"
+            example:
+              timeZone: Asia/Jerusalem
+              weekStart: monday
+              weeks:
+                - startDate: 2026-11-02
+                  runCount: 1
+                  distanceMeters: 10240
+                  durationSeconds: 3150
+              months:
+                - startDate: 2026-11-01
+                  runCount: 1
+                  distanceMeters: 10240
+                  durationSeconds: 3150
+              totals:
+                runCount: 87
+                distanceMeters: 812500
+                durationSeconds: 250000
+              personalBests:
+                longestRun:
+                  runId: 019a4c10-22ab-7c44-8e01-3ad9f6b2c704
+                  distanceMeters: 21400
+                  startedAt: 2026-10-11T05:00:00Z
+                fastestPace:
+                  - minDistanceMeters: 5000
+                    paceSecondsPerKm: 285
+                    runId: 019a4c10-22ab-7c44-8e01-3ad9f6b2c704
+                    startedAt: 2026-10-05T05:00:00Z
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/runs:
+  post:
+    operationId: uploadRun
+    tags:
+      - Runs
+    summary: Upload a run (GPX)
+    description: |-
+      Parses and scores the run synchronously (D26, D30). Safe to retry: the file hash makes this idempotent.
+
+      - **201**: a new run. Check `status`: a well-formed but implausible run is stored with `status: invalid` and never scored.
+      - **200**: this exact file was already uploaded. The body is the original run, with the same status.
+
+      The client must set `Content-Type: application/gpx+xml` explicitly, because browsers often leave `File.type` empty for `.gpx`. Gzip request bodies are refused.
+    x-access-patterns:
+      - W1
+      - W2
+    security:
+      - sessionCookie: []
+    requestBody:
+      required: true
+      description: The raw GPX file, at most 20 MB.
+      content:
+        application/gpx+xml:
+          schema:
+            type: string
+            contentMediaType: application/gpx+xml
+          example: |
+            <?xml version="1.0" encoding="UTF-8"?>
+            <gpx version="1.1" creator="example" xmlns="http://www.topografix.com/GPX/1/1">
+              <trk><trkseg>
+                <trkpt lat="32.7940" lon="34.9896"><time>2026-11-02T05:30:00Z</time></trkpt>
+                <trkpt lat="32.7945" lon="34.9901"><time>2026-11-02T05:30:20Z</time></trkpt>
+              </trkseg></trk>
+            </gpx>
+    responses:
+      "200":
+        description: This file was already uploaded. Returns the original run.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/OwnRun"
+            example:
+              id: 019a3f77-81cd-7e10-a2f4-90b1d3c6e805
+              source: gpx_upload
+              startedAt: 2026-11-02T05:30:00Z
+              endedAt: 2026-11-02T06:22:30Z
+              distanceMeters: 42000
+              durationSeconds: 3150
+              paceSecondsPerKm: 75
+              status: invalid
+              invalidReason: pace_too_fast
+              receivedAt: 2026-11-02T06:40:12Z
+      "201":
+        description: New run stored.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+          Location:
+            $ref: "../components/headers.yaml#/Location"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/OwnRun"
+            example:
+              id: 019a4c10-22ab-7c44-8e01-3ad9f6b2c704
+              source: gpx_upload
+              startedAt: 2026-11-02T05:30:00Z
+              endedAt: 2026-11-02T06:22:30Z
+              distanceMeters: 10240
+              durationSeconds: 3150
+              paceSecondsPerKm: 308
+              status: valid
+              invalidReason: null
+              receivedAt: 2026-11-02T06:40:12Z
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "403":
+        description: Not allowed, or rejected as cross-site.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              csrf_rejected:
+                $ref: "../components/examples.yaml#/problem_csrf_rejected"
+      "409":
+        description: Conflicts with the current state.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              run_overlap:
+                $ref: "../components/examples.yaml#/problem_run_overlap"
+      "413":
+        description: Body too large.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              payload_too_large:
+                $ref: "../components/examples.yaml#/problem_payload_too_large"
+      "415":
+        description: Unsupported Content-Type.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              unsupported_media_type:
+                $ref: "../components/examples.yaml#/problem_unsupported_media_type"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              gpx_malformed:
+                $ref: "../components/examples.yaml#/problem_gpx_malformed"
+              gpx_out_of_range:
+                $ref: "../components/examples.yaml#/problem_gpx_out_of_range"
+              run_in_future:
+                $ref: "../components/examples.yaml#/problem_run_in_future"
+              run_too_old:
+                $ref: "../components/examples.yaml#/problem_run_too_old"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        description: Temporarily unavailable. Safe to retry.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Retry-After:
+            $ref: "../components/headers.yaml#/RetryAfter"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              storage_unavailable:
+                $ref: "../components/examples.yaml#/problem_storage_unavailable"
+              temporarily_unavailable:
+                $ref: "../components/examples.yaml#/problem_temporarily_unavailable"
+/me/runs:
+  get:
+    operationId: listMyRuns
+    tags:
+      - Runs
+    summary: List my runs
+    description: Newest first, including invalid runs with their reason.
+    x-access-patterns:
+      - R3
+    security:
+      - sessionCookie: []
+    parameters:
+      - $ref: "../components/parameters.yaml#/Limit"
+      - $ref: "../components/parameters.yaml#/Cursor"
+    responses:
+      "200":
+        description: My runs.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+                - nextCursor
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "../components/schemas.yaml#/OwnRun"
+                nextCursor:
+                  $ref: "../components/schemas.yaml#/NextCursor"
+            example:
+              items:
+                - id: 019a4c10-22ab-7c44-8e01-3ad9f6b2c704
+                  source: gpx_upload
+                  startedAt: 2026-11-02T05:30:00Z
+                  endedAt: 2026-11-02T06:22:30Z
+                  distanceMeters: 10240
+                  durationSeconds: 3150
+                  paceSecondsPerKm: 308
+                  status: valid
+                  invalidReason: null
+                  receivedAt: 2026-11-02T06:40:12Z
+                - id: 019a3f77-81cd-7e10-a2f4-90b1d3c6e805
+                  source: gpx_upload
+                  startedAt: 2026-11-02T05:30:00Z
+                  endedAt: 2026-11-02T06:22:30Z
+                  distanceMeters: 42000
+                  durationSeconds: 3150
+                  paceSecondsPerKm: 75
+                  status: invalid
+                  invalidReason: pace_too_fast
+                  receivedAt: 2026-11-02T06:40:12Z
+              nextCursor: eyJ2IjoxLCJzIjoiMjAyNi0xMC0yOFQwNTowMDowMFoifQ
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              invalid_cursor:
+                $ref: "../components/examples.yaml#/problem_invalid_cursor"
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "422":
+        description: Understood, but breaks a rule.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              validation_failed:
+                $ref: "../components/examples.yaml#/problem_validation_failed"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
+/runs/{runId}:
+  get:
+    operationId: getRun
+    tags:
+      - Runs
+    summary: Get one run
+    description: The owner gets all fields. Others see valid runs only, as `runPrivacy` allows, without owner-only fields. A run the viewer cannot see returns 404.
+    x-access-patterns:
+      - R3
+    security:
+      - sessionCookie: []
+    parameters:
+      - name: runId
+        in: path
+        required: true
+        description: A run ID.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The run.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+          Cache-Control:
+            $ref: "../components/headers.yaml#/CacheControlNoStore"
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas.yaml#/Run"
+            example:
+              id: 019a4c10-22ab-7c44-8e01-3ad9f6b2c704
+              source: gpx_upload
+              startedAt: 2026-11-02T05:30:00Z
+              endedAt: 2026-11-02T06:22:30Z
+              distanceMeters: 10240
+              durationSeconds: 3150
+              paceSecondsPerKm: 308
+              status: valid
+              invalidReason: null
+              receivedAt: 2026-11-02T06:40:12Z
+      "400":
+        description: The request could not be understood.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              malformed_request:
+                $ref: "../components/examples.yaml#/problem_malformed_request"
+      "401":
+        $ref: "../components/responses.yaml#/Unauthenticated"
+      "404":
+        description: Does not exist, or the viewer may not know it exists.
+        headers:
+          X-Request-Id:
+            $ref: "../components/headers.yaml#/XRequestId"
+        content:
+          application/problem+json:
+            schema:
+              $ref: "../components/schemas.yaml#/Problem"
+            examples:
+              not_found:
+                $ref: "../components/examples.yaml#/problem_not_found"
+      "429":
+        $ref: "../components/responses.yaml#/RateLimited"
+      "500":
+        $ref: "../components/responses.yaml#/InternalError"
+      "503":
+        $ref: "../components/responses.yaml#/Unavailable"
