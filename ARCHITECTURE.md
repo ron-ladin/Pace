@@ -7,6 +7,7 @@
 > - [docs/design/api.md](docs/design/api.md): API design and rationale.
 > - [docs/api/openapi.yaml](docs/api/openapi.yaml): the API contract, and the source of truth for the HTTP API.
 > - [docs/design/classes.md](docs/design/classes.md): class design for the Phase 1 backend, with module interfaces, flows and traceability.
+> - [docs/process/git-workflow.md](docs/process/git-workflow.md): branch model, merging, versioning, secrets policy, enforcement and GitHub settings.
 >
 > This file is the single source of truth for project decisions. Update it (and the decision log) whenever a decision changes.
 
@@ -367,6 +368,7 @@ The full layout, down to class names, is in [docs/design/classes.md](docs/design
 | D63 | Time: anything compared against a stored competition or session time uses the database clock, with `now()` selected alongside the row and passed to domain methods. Coarse validation of client input uses `java.time.Clock` | Decided | [classes 11](docs/design/classes/domain-and-patterns.md#11-time-d63) |
 | D64 | Errors: one `ErrorCode` enum holds the catalog, including statuses. One `ApiException` carries a code, a detail and optional extensions. `ProblemFactory` is the only place that builds a Problem. No exception class per code | Decided | [classes 9.3](docs/design/classes/cross-cutting.md#93-exceptions-and-problem-details-d64) |
 | D65 | Response shapes: separate records where the shape differs (`RunDto` and `OwnRunDto`, `TopNEntryDto` and `FullEntryDto`). `JsonNullable` where a field has three states (absent, null, value), and for `PATCH /me` requests. Its Jackson 3 and record support must be checked in the vertical slice | Decided | [classes 9.10](docs/design/classes/cross-cutting.md#910-absent-versus-null-in-responses-d65) |
+| D66 | Git process: lean GitFlow with main, develop and short work branches, default branch develop. Squash into develop, merge commit into main, Conventional Commits, SemVer tags on main from v0.1.0. Secrets stay out of the repository, with a staged-diff check before every commit. Enforced by deny rules in `.claude/settings.json` and GitHub rulesets. Chosen as a learning goal, although GitHub Flow would be simpler for one developer. Local hooks are optional later hardening | Decided | [git workflow 1](docs/process/git-workflow.md#1-branch-model) |
 
 ---
 
@@ -403,7 +405,7 @@ The final data model is in **[docs/design/database.md](docs/design/database.md)*
 4. ~~API design~~ (done, see `docs/design/api.md` and `docs/api/openapi.yaml`)
 5. ~~Class design~~ (done, see `docs/design/classes.md`)
 6. A thin synchronous vertical slice (next)
-7. Infrastructure and CI
+7. Infrastructure and CI, including a gitleaks step and required status checks (D66)
 8. Synthetic-data load tests and observability
 9. Email flows and a domain, **before opening to the public** (D50)
 10. Only then Outbox/queue, Redis, replication or partitioning, each justified by measurements. Service splits only if justified
